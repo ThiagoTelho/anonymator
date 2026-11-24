@@ -160,7 +160,7 @@ export default function App() {
         )}
         {step === 4 && <StepRestore current={done?.result.replacements ?? null} />}
       </main>
-      <footer className="mx-auto max-w-6xl px-4 pb-10 text-xs text-stone-500">
+      <footer className="mx-auto max-w-6xl px-4 pb-10 text-center text-xs text-stone-500">
         Revise sempre o resultado: a detecção automática não garante a remoção de todos os dados pessoais.
       </footer>
     </div>
