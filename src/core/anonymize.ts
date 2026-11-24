@@ -3,6 +3,7 @@
 
 import * as mupdf from "mupdf";
 import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts";
+import { fitLabel, shortLabel } from "./labels.ts";
 
 export interface Person {
   /** Grafias da mesma pessoa no documento (ex.: nome completo, "Sr. Almeida"). */
@@ -93,7 +94,14 @@ function entityKey(m: Match): string {
   }
 }
 
-const pdfString = (s: string) => `(${s.replace(/[\\()]/g, "\\$&")})`;
+/** String literal PDF para fonte simples Latin: escapa \\ ( ) e codifica acentos em octal (Latin-1). */
+const pdfString = (s: string) =>
+  `(${Array.from(s, (ch) => {
+    const code = ch.charCodeAt(0);
+    if (ch === "\\" || ch === "(" || ch === ")") return "\\" + ch;
+    if (code > 126 && code < 256) return "\\" + code.toString(8).padStart(3, "0");
+    return code > 255 ? "?" : ch;
+  }).join("")})`;
 
 export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): AnonymizeResult {
   const doc = new mupdf.PDFDocument(input);
@@ -101,19 +109,24 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
   const fontRef = doc.addSimpleFont(font, "Latin");
 
   const replacements = new Map<string, Replacement>();
+  const shortForms = new Map<string, string>();
   const counters = new Map<Kind, number>();
-  const placeholderFor = (key: string, kind: Kind, original: string): string => {
+  const placeholderFor = (key: string, kind: Kind, original: string): { full: string; short: string } => {
     let r = replacements.get(key);
     if (!r) {
       const n = (counters.get(kind) ?? 0) + 1;
       counters.set(kind, n);
       r = { placeholder: `[${kind}_${n}]`, kind, originals: [], occurrences: 0 };
       replacements.set(key, r);
+      shortForms.set(r.placeholder, shortLabel(kind, n));
     }
     if (!r.originals.includes(original)) r.originals.push(original);
     r.occurrences++;
-    return r.placeholder;
+    return { full: r.placeholder, short: shortForms.get(r.placeholder)! };
   };
+  /** Marcadores que precisaram da forma curta em algum ponto do PDF (vão para a legenda). */
+  const usedShort = new Map<string, string>();
+  const measure = (t: string) => Array.from(t).reduce((sum, ch) => sum + font.advanceGlyph(font.encodeCharacter(ch)), 0);
 
   const pageTexts: string[] = [];
 
@@ -142,12 +155,12 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     matches.sort((a, b) => a.m.start - b.m.start);
 
     // 2. Marcar as áreas para remoção e guardar onde escrever cada marcador.
-    const overlays: { rect: mupdf.Rect; label: string }[] = [];
+    const overlays: { rect: mupdf.Rect; label?: { full: string; short: string } }[] = [];
     let out = "";
     let cursor = 0;
     for (const { m, key } of matches) {
       const label = placeholderFor(key, m.kind, m.text.replace(/\s+/g, " "));
-      out += text.slice(cursor, m.start) + label;
+      out += text.slice(cursor, m.start) + label.full;
       cursor = m.end;
       // Recuo horizontal pequeno para não atingir a pontuação colada ao dado (ex.: "35,").
       const rects = lineRects(chars, m.start, m.end).map(([x0, y0, x1, y1]): mupdf.Rect => [x0 + 0.4, y0, x1 - 0.4, y1]);
@@ -157,7 +170,7 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
       annot.setQuadPoints(rects.map((r) => [r[0], r[1], r[2], r[1], r[0], r[3], r[2], r[3]] as mupdf.Quad));
       // O marcador vai no maior pedaço quando o dado quebra de linha; os demais ficam só com o fundo.
       const widest = rects.reduce((best, r, i) => (r[2] - r[0] > rects[best][2] - rects[best][0] ? i : best), 0);
-      rects.forEach((r, i) => overlays.push({ rect: r, label: i === widest ? label : "" }));
+      rects.forEach((r, i) => overlays.push({ rect: r, label: i === widest ? label : undefined }));
     }
     out += text.slice(cursor);
     pageTexts.push(out);
@@ -179,11 +192,10 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
       const h = y1 - y0;
       under += `0.88 g ${x0.toFixed(2)} ${y0.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f\n`;
       if (!label) continue;
-      let unitWidth = 0;
-      for (const ch of label) unitWidth += font.advanceGlyph(font.encodeCharacter(ch));
-      const size = Math.max(3, Math.min(h * 0.8, (w * 0.98) / unitWidth));
-      const baseline = y0 + (h - size * 0.7) / 2;
-      ops += `0 g BT /AnonF ${size.toFixed(2)} Tf ${(x0 + 0.5).toFixed(2)} ${baseline.toFixed(2)} Td ${pdfString(label)} Tj ET\n`;
+      const fitted = fitLabel(label.full, label.short, Math.max(0, w - 1), h, measure);
+      if (fitted.text !== label.full) usedShort.set(fitted.text, label.full);
+      const baseline = y0 + (h - fitted.size * 0.7) / 2;
+      ops += `0 g BT /AnonF ${fitted.size.toFixed(2)} Tf ${(fitted.scale * 100).toFixed(1)} Tz ${(x0 + 0.5).toFixed(2)} ${baseline.toFixed(2)} Td ${pdfString(fitted.text)} Tj ET\n`;
     }
     ops += "Q\n";
     under += "Q\n";
@@ -209,6 +221,8 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     pageObj.put("Contents", contents);
   }
 
+  if (usedShort.size > 0) addLegendPage(doc, fontRef, usedShort);
+
   scrub(doc);
 
   // garbage: descarta objetos que ficaram sem referência (inclusive o conteúdo antigo das páginas).
@@ -218,6 +232,38 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     text: pageTexts.map((t, i) => `--- Página ${i + 1} ---\n${t.trim()}`).join("\n\n"),
     replacements: [...replacements.values()],
   };
+}
+
+/**
+ * Página final explicando as formas curtas usadas onde o marcador completo não cabia.
+ * Só contém marcadores e texto fixo: nenhum dado do documento.
+ */
+function addLegendPage(doc: mupdf.PDFDocument, fontRef: mupdf.PDFObject, usedShort: Map<string, string>) {
+  const last = doc.loadPage(doc.countPages() - 1);
+  const [x0, y0, x1, y1] = mupdf.Rect.transform(last.getBounds(), mupdf.Matrix.invert(last.getTransform()));
+  const pairs = [...usedShort].sort(([a], [b]) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  const lines = [
+    { text: "Legenda dos marcadores", size: 14 },
+    { text: "Este PDF foi anonimizado. Onde o dado original era curto demais para o marcador completo,", size: 10 },
+    { text: "foi usada uma forma abreviada, equivalente ao marcador completo do texto (.txt):", size: 10 },
+    { text: "", size: 10 },
+    ...pairs.map(([short, full]) => ({ text: `${short} = ${full}`, size: 10 })),
+    { text: "", size: 10 },
+    { text: "Esta página não faz parte do documento original.", size: 9 },
+  ];
+  let y = y1 - 60;
+  let ops = "BT\n";
+  for (const { text, size } of lines) {
+    if (text) ops += `/AnonF ${size} Tf 1 0 0 1 ${(x0 + 56).toFixed(2)} ${y.toFixed(2)} Tm ${pdfString(text)} Tj\n`;
+    y -= size * 1.6;
+    if (y < y0 + 40) break;
+  }
+  ops += "ET\n";
+  const resources = doc.newDictionary();
+  const fonts = doc.newDictionary();
+  fonts.put("AnonF", fontRef);
+  resources.put("Font", fonts);
+  doc.insertPage(-1, doc.addPage([x0, y0, x1, y1], 0, resources, ops));
 }
 
 /** Remove partes do PDF que podem carregar dados pessoais fora do texto das páginas. */

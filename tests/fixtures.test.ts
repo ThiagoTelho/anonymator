@@ -19,7 +19,7 @@ import { anonymizePdf, type Person } from "../src/core/anonymize.ts";
 import { extractText, findLeaks } from "../src/core/leaks.ts";
 import { suggestEntities } from "../src/core/names.ts";
 import { FIRST_NAMES } from "./helpers/names.ts";
-import { norm, openPdf } from "./helpers/pdf.ts";
+import { markerSizeRatios, norm, openPdf } from "./helpers/pdf.ts";
 
 interface FixtureSpec {
   description?: string;
@@ -75,8 +75,18 @@ describe.each(pdfs)("fixture %s", (file) => {
     expect(text).not.toContain(norm(value));
   });
 
-  it("gera um PDF válido com o mesmo número de páginas", () => {
-    expect(openPdf(result.pdf).countPages()).toBe(openPdf(input).countPages());
+  it("gera um PDF válido com as mesmas páginas (mais a legenda, se houver marcadores curtos)", () => {
+    const out = openPdf(result.pdf);
+    const original = openPdf(input).countPages();
+    if (out.countPages() === original + 1) {
+      expect(norm(out.loadPage(original).toStructuredText("preserve-whitespace").asText())).toContain("legenda dos marcadores");
+    } else {
+      expect(out.countPages()).toBe(original);
+    }
+  });
+
+  it("escreve todos os marcadores com pelo menos 60% do tamanho do texto da página", () => {
+    expect(Math.min(...markerSizeRatios(result.pdf))).toBeGreaterThanOrEqual(0.6);
   });
 
   it("encontra no documento todas as pessoas e empresas usadas", () => {

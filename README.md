@@ -20,7 +20,9 @@ PDF ──► extrair texto + posição de cada caractere (MuPDF)
           │     • o texto sob a área é apagado do fluxo de conteúdo
           │     • pixels de imagens sob a área são apagados
           │
-          ├─► escrever o marcador no lugar (novo fluxo de conteúdo, fonte Helvetica)
+          ├─► escrever o marcador no lugar (novo fluxo de conteúdo, fonte Helvetica), encaixado no
+          │     espaço do dado: comprime na horizontal, reduz a fonte até um mínimo legível ou usa a
+          │     forma curta ([P5] = [PESSOA_5]), explicada numa página de legenda no fim do PDF
           │
           └─► limpar metadados, XMP, marcadores, anexos, formulários e anotações
                 └─► salvar com coleta de lixo (objetos antigos não ficam no arquivo)
@@ -40,6 +42,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 |---|---|
 | `src/core/detectors.ts` | Detectores determinísticos (endereços, CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
 | `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias e marcação de agentes públicos |
+| `src/core/labels.ts` | Encaixe legível do marcador no espaço do dado (compressão, fonte mínima, forma curta) |
 | `src/core/people.ts` | Junta as sugestões marcadas pelo usuário e os nomes digitados à mão |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
 | `src/core/anonymize.ts` | Motor de anonimização sobre o MuPDF: localização, remoção, marcadores e limpeza do arquivo |
@@ -82,6 +85,7 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
 - **Detectores** (`tests/detectors.test.ts`): validação de CPF/CNPJ, padrões, busca de nomes.
 - **Motor** (`tests/anonymize.test.ts`): gera PDFs fictícios em memória e confere remoção real,
   preservação do texto ao redor, marcadores consistentes, opções e limpeza de metadados e anexos.
+- **Marcadores** (`tests/labels.test.ts`): escolha entre marcador completo, comprimido ou curto, sem transbordar.
 - **Sugestão de nomes** (`tests/names.test.ts`): pessoas, empresas, agentes públicos e falsos positivos
   (logradouros, leis, cabeçalhos).
 - **Fixtures** (`tests/fixtures.test.ts`): roda o motor em cada PDF de `fixtures/` e confere, pelo `.json`

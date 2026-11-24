@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { anonymizePdf } from "../src/core/anonymize.ts";
 import { extractText, findLeaks } from "../src/core/leaks.ts";
-import { makePdf, norm, openPdf } from "./helpers/pdf.ts";
+import { makePdf, markerSizeRatios, norm, openPdf } from "./helpers/pdf.ts";
 
 const run = (pages: string[], people: string[][] = [], detectPatterns = true) =>
   anonymizePdf(makePdf(pages), { people: people.map((variants) => ({ variants })), detectPatterns });
@@ -92,6 +92,31 @@ describe("anonymizePdf — empresas e prioridade entre pessoas", () => {
     const result = run(["<p>Maria da Silva e Maria conversaram.</p>"], [["Maria"], ["Maria da Silva"]]);
     expect(placeholderOf(result, "Maria da Silva")).toBeDefined();
     expect(result.replacements.find((r) => r.originals.includes("Maria"))?.occurrences).toBe(1);
+  });
+});
+
+describe("anonymizePdf — marcadores legíveis", () => {
+  it("mantém o marcador perto do tamanho do texto mesmo quando o dado original é curto", () => {
+    const result = run(["<p>Em agosto, o colega Gil sofreu um acidente; nascido em 14/07/1991.</p>"], [["Gil", "Gilberto Souza"]]);
+    const ratios = markerSizeRatios(result.pdf);
+    expect(ratios.length).toBeGreaterThan(0);
+    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("acrescenta uma página de legenda quando usa marcadores curtos", () => {
+    const input = makePdf(["<p>o colega Gil sofreu um acidente.</p>"]);
+    const result = anonymizePdf(input, { people: [{ variants: ["Gil"] }] });
+    const doc = openPdf(result.pdf);
+    expect(doc.countPages()).toBe(2);
+    const legend = norm(doc.loadPage(1).toStructuredText("preserve-whitespace").asText());
+    expect(legend).toContain("legenda");
+    expect(legend).toContain("[p1] = [pessoa_1]");
+    expect(norm(extractText(result.pdf))).not.toContain("gil ");
+  });
+
+  it("não acrescenta legenda quando todos os marcadores cabem completos", () => {
+    const result = run(["<p>A autora Maria Aparecida dos Santos Oliveira ajuizou a ação.</p>"], [["Maria Aparecida dos Santos Oliveira"]]);
+    expect(openPdf(result.pdf).countPages()).toBe(1);
   });
 });
 
