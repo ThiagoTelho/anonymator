@@ -66,6 +66,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/detectors.ts` | Detectores determinísticos de dados com formato fixo, endereços e busca de nomes (ignora maiúsculas, acentos, quebras de linha; pronome de tratamento fica no texto) |
 | `src/core/names.ts` | Sugestão de pessoas e empresas, agrupamento de grafias, apelidos, agentes públicos, exclusão de lugares |
 | `src/core/plan.ts` | Planejamento: o que será removido em cada página (trechos, tipo, pessoa, retângulos) — fonte única do motor e da pré-visualização |
+| `src/core/numbering.ts` | Numeração dos marcadores pela ordem de aparição — compartilhada pelo motor e pela revisão (o marcador mostrado na tela é o do PDF final) |
 | `src/core/anonymize.ts` | Motor: aplica o planejamento (remoção real), marcadores, legenda e limpeza do arquivo |
 | `src/core/preview.ts` | Pré-visualização: imagem da página, caixas do que será removido/desmarcado e palavras para seleção |
 | `src/core/entities.ts` | Lista editável de pessoas e empresas (marcar, grafias, juntar, separar, criar) |
@@ -95,6 +96,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `scripts/diagnose.ts` | Diagnóstico de PDFs **reais** sem expor conteúdo: só estatísticas (páginas, avisos, contagens por tipo, tempos, memória) |
 | `scripts/verify.ts` | Anonimiza uma fixture com os nomes do `.json` e grava a saída em `out/` |
 | `scripts/build-first-names.py` | Regera a lista de primeiros nomes |
+| `scripts/build-icons.ts` | Gera os ícones PNG a partir de `public/logo.svg` (`pnpm icons`) |
 
 ## Desenvolvimento
 

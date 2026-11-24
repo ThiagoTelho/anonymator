@@ -10,9 +10,11 @@ import {
   setKind,
   setSelected,
   split,
+  toPeople,
   toPreview,
   type Entity,
 } from "../core/entities.ts";
+import type { PlannedLabels } from "../core/numbering.ts";
 import { KIND_LABELS } from "../core/summary.ts";
 import type { WorkerProgress } from "../worker.ts";
 import { Card, ProgressBar } from "./common.tsx";
@@ -39,12 +41,13 @@ export function StepReview(props: Props) {
   const [focus, setFocus] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const selectedCount = entities.filter((e) => e.selected).length;
+  const labels = useLabels(props.session, entities, props.skipKinds);
 
   return (
     <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <div className="space-y-5">
-          <EntityList entities={entities} onEntities={onEntities} focus={focus} open={open} onOpen={setOpen} />
+          <EntityList entities={entities} onEntities={onEntities} focus={focus} open={open} onOpen={setOpen} labels={labels} />
           <DetectedKinds detected={props.detected} skipKinds={props.skipKinds} onSkipKinds={props.onSkipKinds} />
         </div>
         <PagePreview
@@ -52,6 +55,7 @@ export function StepReview(props: Props) {
           pages={props.pages}
           entities={entities}
           skipKinds={props.skipKinds}
+          labels={labels}
           onFocusEntity={(i) => {
             // Clicar num destaque da página abre a pessoa correspondente na lista.
             const id = entities[i]?.id ?? null;
@@ -84,18 +88,51 @@ export function StepReview(props: Props) {
   );
 }
 
+/** Marcador previsto para cada entidade (id → "[PESSOA_2]"), com a mesma numeração do PDF final. */
+interface EntityLabels {
+  /** undefined enquanto calcula; null = marcada mas não aparece no documento. */
+  byEntity: Map<string, string | null>;
+  keys: PlannedLabels["keys"];
+  ready: boolean;
+}
+
+function useLabels(session: PreviewSession | null, entities: Entity[], skipKinds: Kind[]): EntityLabels {
+  const [planned, setPlanned] = useState<{ labels: PlannedLabels; ids: string[] } | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    // O motor recebe só as marcadas, nesta ordem: o índice i do resultado é a i-ésima marcada.
+    const ids = entities.filter((e) => e.selected).map((e) => e.id);
+    const t = setTimeout(async () => {
+      const labels = await session.labels({ people: toPeople(entities), skipKinds });
+      if (alive && labels) setPlanned({ labels, ids });
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [session, entities, skipKinds]);
+  return useMemo(() => {
+    const byEntity = new Map<string, string | null>();
+    planned?.ids.forEach((id, i) => byEntity.set(id, planned.labels.people[i] ?? null));
+    return { byEntity, keys: planned?.labels.keys ?? {}, ready: planned !== null };
+  }, [planned]);
+}
+
 function EntityList({
   entities,
   onEntities,
   focus,
   open,
   onOpen: setOpen,
+  labels,
 }: {
   entities: Entity[];
   onEntities: (l: Entity[]) => void;
   focus: string | null;
   open: string | null;
   onOpen: (id: string | null) => void;
+  labels: EntityLabels;
 }) {
   const [adding, setAdding] = useState("");
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
@@ -145,6 +182,7 @@ function EntityList({
                     {e.occurrences > 0 && ` · ${e.occurrences}×`}
                   </span>
                 </button>
+                <PlaceholderTag entity={e} labels={labels} />
                 {e.publicAgent && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">agente público</span>}
                 {e.kind === "EMPRESA" && <span className="rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-600">empresa</span>}
               </div>
@@ -173,6 +211,24 @@ function EntityList({
         </button>
       </form>
     </Card>
+  );
+}
+
+/** "→ [PESSOA_2]" para marcadas; aviso se a marcada não aparece no documento; "mantido" para desmarcadas. */
+function PlaceholderTag({ entity, labels }: { entity: Entity; labels: EntityLabels }) {
+  if (!entity.selected) return <span className="shrink-0 text-xs text-stone-400">mantido</span>;
+  const label = labels.byEntity.get(entity.id);
+  if (label === undefined) return <span className="shrink-0 text-xs text-stone-300">…</span>;
+  if (label === null)
+    return (
+      <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800" title="Nenhuma grafia desta pessoa foi encontrada no texto do documento">
+        não encontrado
+      </span>
+    );
+  return (
+    <span data-testid="marcador" title={`Será substituído por ${label}`} className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 font-mono text-xs text-red-800">
+      → {label}
+    </span>
   );
 }
 
@@ -275,6 +331,7 @@ function PagePreview({
   pages,
   entities,
   skipKinds,
+  labels,
   onFocusEntity,
   onEntities,
 }: {
@@ -282,6 +339,7 @@ function PagePreview({
   pages: number;
   entities: Entity[];
   skipKinds: Kind[];
+  labels: EntityLabels;
   onFocusEntity: (i: number) => void;
   onEntities: (l: Entity[]) => void;
 }) {
@@ -357,17 +415,25 @@ function PagePreview({
                 style={{ left: pct(w.x, image.width), top: pct(w.y, image.height), width: pct(w.w, image.width), height: pct(w.h, image.height) }}
               />
             ))}
-            {image.boxes.map((b, i) => (
+            {image.boxes.map((b, i) => {
+              const placeholder = !b.removed
+                ? undefined
+                : b.person !== undefined
+                  ? (labels.byEntity.get(entities[b.person]?.id ?? "") ?? undefined)
+                  : labels.keys[b.key];
+              const what = b.removed ? `será removido${placeholder ? ` como ${placeholder}` : ""}` : "não será removido";
+              return (
               <button
                 key={`b${i}`}
-                title={`${b.text} — ${KIND_LABELS[b.kind]} (${b.removed ? "será removido" : "não será removido"})`}
-                aria-label={`${b.text}: ${b.removed ? "será removido" : "não será removido"}`}
+                title={`${b.text} — ${KIND_LABELS[b.kind]}: ${what}`}
+                aria-label={`${b.text}: ${what}`}
                 data-testid={b.removed ? "destaque-removido" : "destaque-mantido"}
                 onClick={() => b.person !== undefined && onFocusEntity(b.person)}
                 className={`absolute rounded-sm ${b.removed ? "border border-red-500 bg-red-500/25" : "border border-dashed border-stone-500"}`}
                 style={{ left: pct(b.x, image.width), top: pct(b.y, image.height), width: pct(b.w, image.width), height: pct(b.h, image.height) }}
               />
-            ))}
+              );
+            })}
           </>
         ) : (
           <div className="flex h-96 items-center justify-center text-sm text-stone-400">Carregando a página…</div>

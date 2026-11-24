@@ -81,6 +81,40 @@ test("pré-visualização mostra o que será removido e acompanha as escolhas", 
   await expect(page.getByRole("button", { name: "Grafias de João Pedro Almeida" })).toHaveAttribute("aria-expanded", "true");
 });
 
+test("revisão mostra o marcador que vai substituir cada pessoa, igual ao do resultado", async ({ page }) => {
+  await review(page, "fixtures/peticao-ficticia.pdf");
+  const row = (name: string) => page.getByRole("listitem").filter({ has: page.getByRole("checkbox", { name }) });
+  const tag = (name: string) => row(name).getByTestId("marcador");
+  const label = async (name: string) => (await tag(name).textContent())!.replace("→", "").trim();
+
+  // Numeração pela ordem de aparição: Maria, Carlos (advogado), João.
+  await expect(tag("Maria Aparecida dos Santos Oliveira")).toHaveText("→ [PESSOA_1]");
+  await expect(tag("Carlos Eduardo Ferreira")).toHaveText("→ [PESSOA_2]");
+  await expect(tag("João Pedro Almeida")).toHaveText("→ [PESSOA_3]");
+
+  // Desmarcar Carlos: ele fica "mantido" e João passa a ser [PESSOA_2], como no PDF final.
+  await page.getByRole("checkbox", { name: "Carlos Eduardo Ferreira" }).uncheck();
+  await expect(row("Carlos Eduardo Ferreira")).toContainText("mantido");
+  await expect(tag("João Pedro Almeida")).toHaveText("→ [PESSOA_2]");
+
+  // Digitada e ausente do documento: "não encontrado".
+  await page.getByLabel("Nova pessoa").fill("Pessoa Que Não Está No Documento");
+  await page.getByRole("button", { name: "Acrescentar" }).click();
+  await expect(row("Pessoa Que Não Está No Documento")).toContainText("não encontrado");
+
+  // A dica do destaque na página também traz o marcador.
+  const mariaLabel = await label("Maria Aparecida dos Santos Oliveira");
+  const joaoLabel = await label("João Pedro Almeida");
+  await expect(page.getByRole("button", { name: `João Pedro Almeida: será removido como ${joaoLabel}` }).first()).toBeVisible();
+
+  // E o resultado usa exatamente esses marcadores.
+  await anonymize(page);
+  const txt = new TextDecoder().decode(await downloadBytes(page, "Baixar texto para a IA"));
+  expect(txt).toContain(`${mariaLabel}, brasileira`);
+  expect(txt).toContain(`O sócio ${joaoLabel}`);
+  expect(txt).toContain("Carlos Eduardo Ferreira");
+});
+
 test("editar a lista: remover e acrescentar grafia, nome digitado e juntar pessoas", async ({ page }) => {
   await review(page, "fixtures/peticao-ficticia.pdf");
   const maria = "Maria Aparecida dos Santos Oliveira";

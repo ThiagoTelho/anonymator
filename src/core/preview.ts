@@ -20,6 +20,8 @@ export interface PreviewOptions {
 
 export interface PreviewBox {
   kind: Kind;
+  /** Chave da entidade (dados detectados): casa com o marcador previsto em `planLabels`. */
+  key: string;
   text: string;
   /** Índice em `people`, quando veio de um nome. */
   person?: number;
@@ -79,6 +81,7 @@ export function previewPage(doc: mupdf.Document, index: number, opts: PreviewOpt
         const y = Math.max(0, (y0 - by0) * scale);
         return {
           kind: m.kind,
+          key: m.key,
           text: m.text.replace(/\s+/g, " "),
           person: m.person,
           removed: isRemoved,

@@ -1,4 +1,6 @@
 // Comunicação com o Web Worker: tarefas com progresso e cancelamento, e a sessão de pré-visualização.
+import type { PlannedLabels } from "../core/numbering.ts";
+import type { PlanOptions } from "../core/plan.ts";
 import type { PreviewOptions } from "../core/preview.ts";
 import type { WorkerProgress, WorkerRequest, WorkerResponse } from "../worker.ts";
 
@@ -50,6 +52,7 @@ export interface PreviewImage {
 export class PreviewSession {
   private worker = spawn();
   private seq = 0;
+  private labelSeq = 0;
   private pending = new Map<number, (r: WorkerResponse) => void>();
   readonly ready: Promise<number>;
 
@@ -80,6 +83,20 @@ export class PreviewSession {
     if (seq !== this.seq || !response.ok || response.type !== "preview") return null;
     const url = URL.createObjectURL(new Blob([response.png as BlobPart], { type: "image/png" }));
     return { index, url, width: response.width, height: response.height, boxes: response.boxes, words: response.words };
+  }
+
+  /** Marcadores que cada entidade vai receber, com as escolhas atuais (mesma numeração do motor). */
+  async labels(options: PlanOptions): Promise<PlannedLabels | null> {
+    await this.ready;
+    const seq = ++this.labelSeq + 1_000_000;
+    const response = await new Promise<WorkerResponse>((resolve) => {
+      this.pending.set(seq, resolve);
+      this.worker.postMessage({ type: "labels", options, seq } as WorkerRequest);
+    });
+    this.pending.delete(seq);
+    // Só a resposta mais recente interessa (as escolhas podem ter mudado no meio).
+    if (seq !== this.labelSeq + 1_000_000 || !response.ok || response.type !== "labels") return null;
+    return response.labels;
   }
 
   close() {

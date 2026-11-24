@@ -11,6 +11,8 @@ import type { ErrorCode } from "./core/errors.ts";
 import type { Leak } from "./core/leaks.ts";
 import type { Kind } from "./core/detectors.ts";
 import type { Suggestion } from "./core/names.ts";
+import type { PlannedLabels } from "./core/numbering.ts";
+import type { PlanOptions } from "./core/plan.ts";
 import type { PreviewBox, PreviewOptions, PreviewWord } from "./core/preview.ts";
 
 export type WorkerRequest =
@@ -18,7 +20,8 @@ export type WorkerRequest =
   | { type: "anonymize"; pdf: ArrayBuffer; options: Omit<AnonymizeOptions, "onProgress"> }
   // Sessão de pré-visualização: "open" guarda o documento no worker; "preview" desenha uma página.
   | { type: "open"; pdf: ArrayBuffer; password?: string }
-  | { type: "preview"; index: number; options: PreviewOptions; scale: number; seq?: number };
+  | { type: "preview"; index: number; options: PreviewOptions; scale: number; seq?: number }
+  | { type: "labels"; options: PlanOptions; seq?: number };
 
 export type Phase = "carregando" | "diagnostico" | "leitura" | "anonimizacao" | "verificacao";
 
@@ -29,6 +32,7 @@ export type WorkerError = { ok: false; code: ErrorCode; error: string };
 export type WorkerResponse =
   | { ok: true; type: "analyze"; suggestions: Suggestion[]; diagnosis: Diagnosis; detected: Partial<Record<Kind, number>> }
   | { ok: true; type: "opened"; pages: number }
+  | { ok: true; type: "labels"; labels: PlannedLabels }
   | { ok: true; type: "preview"; index: number; png: Uint8Array; width: number; height: number; boxes: PreviewBox[]; words: PreviewWord[] }
   | { ok: true; type: "anonymize"; result: AnonymizeResult; leaks: Leak[] }
   | WorkerError;
@@ -54,6 +58,11 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       const p = previewPage(session, req.index, req.options, req.scale);
       // `seq` volta na resposta para a interface casar pedido e resposta.
       return (self as unknown as Worker).postMessage({ ok: true, type: "preview", index: req.index, seq: req.seq, ...p }, [p.png.buffer]);
+    }
+    if (req.type === "labels") {
+      if (!session) throw new Error("Documento não aberto para pré-visualização.");
+      const { planLabels } = await import("./core/numbering.ts");
+      return (self as unknown as Worker).postMessage({ ok: true, type: "labels", labels: planLabels(session, req.options), seq: req.seq });
     }
     progress("carregando")(0, 1);
     if (req.type === "analyze") {

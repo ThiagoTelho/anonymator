@@ -3,7 +3,8 @@
 
 import * as mupdf from "mupdf";
 import type { Kind } from "./detectors.ts";
-import { fitLabel, shortLabel } from "./labels.ts";
+import { fitLabel } from "./labels.ts";
+import { PlaceholderNumbering } from "./numbering.ts";
 import { openPdf, type OnProgress } from "./diagnose.ts";
 import { planPage, type PlanOptions } from "./plan.ts";
 
@@ -46,22 +47,8 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
   const font = new mupdf.Font("Helvetica");
   const fontRef = doc.addSimpleFont(font, "Latin");
 
-  const replacements = new Map<string, Replacement>();
-  const shortForms = new Map<string, string>();
-  const counters = new Map<Kind, number>();
-  const placeholderFor = (key: string, kind: Kind, original: string): { full: string; short: string } => {
-    let r = replacements.get(key);
-    if (!r) {
-      const n = (counters.get(kind) ?? 0) + 1;
-      counters.set(kind, n);
-      r = { placeholder: `[${kind}_${n}]`, kind, originals: [], occurrences: 0 };
-      replacements.set(key, r);
-      shortForms.set(r.placeholder, shortLabel(kind, n));
-    }
-    if (!r.originals.includes(original)) r.originals.push(original);
-    r.occurrences++;
-    return { full: r.placeholder, short: shortForms.get(r.placeholder)! };
-  };
+  // Mesma numeração da revisão (numbering.ts): o marcador mostrado na tela é o do PDF final.
+  const numbering = new PlaceholderNumbering();
   /** Marcadores que precisaram da forma curta em algum ponto do PDF (vão para a legenda). */
   const usedShort = new Map<string, string>();
   const measure = (t: string) => Array.from(t).reduce((sum, ch) => sum + font.advanceGlyph(font.encodeCharacter(ch)), 0);
@@ -80,7 +67,7 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     let out = "";
     let cursor = 0;
     for (const m of matches) {
-      const label = placeholderFor(m.key, m.kind, m.text.replace(/\s+/g, " "));
+      const label = numbering.assign(m.key, m.kind, m.text.replace(/\s+/g, " "));
       out += text.slice(cursor, m.start) + label.full;
       cursor = m.end;
       const rects = m.rects;
@@ -152,7 +139,7 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
   return {
     pdf: pdf.slice(),
     text: pageTexts.map((t, i) => `--- Página ${i + 1} ---\n${t.trim()}`).join("\n\n"),
-    replacements: [...replacements.values()],
+    replacements: numbering.replacements(),
   };
 }
 

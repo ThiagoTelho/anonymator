@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "preview:fixture": "node scripts/preview-fixture.ts",
     "diagnose": "node scripts/diagnose.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "icons": "node scripts/build-icons.ts"
   },
   "dependencies": {
     "mupdf": "^1.28.6",
