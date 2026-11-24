@@ -25,4 +25,7 @@ da IA.
 - O PDF ficou legível? A revisão ficou clara?
 - Quanto tempo levou, e quantas páginas tinha o processo?
 
+**Onde mandar:** pelo link "Sobre e termos" → "Sugestões e problemas" (GitHub). A página é **pública**: nunca anexe PDF
+nem cole dados reais; o formulário já pede só o tipo e o formato do problema.
+
 **Importante:** é uma versão de teste. Revise sempre o resultado antes de usar.

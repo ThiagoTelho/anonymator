@@ -1,0 +1,52 @@
+name: Problema ou sugestão
+description: Algo passou sem ser removido, foi removido sem precisar, ou uma ideia de melhoria.
+title: "[beta] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Esta página é PÚBLICA
+        **Nunca anexe PDFs nem cole trechos, nomes, números ou qualquer dado real de processos.**
+        Descreva o problema com palavras: o **tipo** de dado e o **formato** em que ele aparecia.
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: O que aconteceu?
+      options:
+        - Um dado pessoal NÃO foi removido
+        - Algo foi removido sem precisar
+        - Erro ou travamento
+        - O PDF ficou ilegível ou estranho
+        - Sugestão de melhoria
+    validations:
+      required: true
+  - type: textarea
+    id: descricao
+    attributes:
+      label: Descrição (sem dados reais)
+      description: |
+        Ex.: "nome de testemunha em CAIXA ALTA dentro de uma tabela", "CPF sem pontos numa coluna", "RG do Paraná com letra no fim".
+      placeholder: Descreva o tipo de dado e o formato, nunca o dado em si.
+    validations:
+      required: true
+  - type: input
+    id: origem
+    attributes:
+      label: De onde veio o PDF?
+      placeholder: "Ex.: PJe do TRT2, e-SAJ do TJSP, MP de Goiás"
+  - type: input
+    id: tamanho
+    attributes:
+      label: Quantas páginas, aproximadamente?
+  - type: input
+    id: navegador
+    attributes:
+      label: Navegador e sistema
+      placeholder: "Ex.: Chrome no Windows"
+  - type: checkboxes
+    id: confirmacao
+    attributes:
+      label: Confirmação
+      options:
+        - label: Não incluí PDF, trecho nem nenhum dado real de processo nesta issue.
+          required: true
