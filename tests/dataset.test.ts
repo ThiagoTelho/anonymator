@@ -8,6 +8,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { diagnosePdf } from "../src/core/diagnose.ts";
 import { evaluate } from "./helpers/dataset.ts";
 
 const DIR = join(import.meta.dirname, "..", "fixtures", "layouts-mpt");
@@ -35,6 +36,9 @@ describe.each(files)("layout %s", (file) => {
   });
   it("não marca parte, advogado ou trabalhador como agente público", () => {
     expect(r.wronglyFlagged).toEqual([]);
+  });
+  it("não gera aviso de diagnóstico (marca d'água e logotipos não são página escaneada)", () => {
+    expect(diagnosePdf(readFileSync(join(DIR, file))).warnings).toEqual([]);
   });
   it("marca o procurador e o auditor como agentes públicos", () => {
     expect(r.agentsNotFlagged).toEqual([]);

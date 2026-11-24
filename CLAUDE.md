@@ -27,6 +27,8 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 
 - **Nunca** coloque PDFs reais, nem trechos deles, em fixtures, testes, commits, issues ou conversas.
   Use só documentos fictícios com dados inventados (CPFs e CNPJs válidos podem ser gerados).
+- PDFs reais só são examinados pelo autor, na máquina dele, com `pnpm diagnose` (que não imprime conteúdo nem nome
+  de arquivo). Ao pedir ajuda com um problema real, peça a saída do diagnóstico e reproduza o caso numa fixture fictícia.
 - Nada pode sair do navegador: sem backend, analytics, fontes ou scripts de terceiros. A CSP em
   `vite.config.ts` (`connect-src 'self'`) precisa continuar valendo; não a afrouxe.
 
@@ -51,4 +53,5 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 | `pnpm preview` | Serve o build de produção (para testar com a CSP) |
 | `pnpm preview:fixture <nome> <página>` | Anonimiza uma fixture como o usuário faria e grava em `out/` |
 | `node scripts/eval-dataset.ts <pasta> --misses` | Avalia um conjunto com gabarito estruturado |
+| `pnpm diagnose <pdf\|pasta> [--senha=…]` | Diagnóstico de PDFs reais sem conteúdo (o autor roda e compartilha) |
 | `pnpm verify [pdf]` | Anonimiza um PDF fictício e grava a saída em `out/` para inspeção |

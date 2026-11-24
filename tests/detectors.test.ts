@@ -335,3 +335,21 @@ describe("detectPatterns — variações de layout (processos do MPT)", () => {
     expect(kinds("CNAE 2342-7/02; R$ 16.840,66")).toEqual([]);
   });
 });
+
+describe("CNPJ alfanumérico (Receita Federal, a partir de julho/2026)", () => {
+  it("valida o dígito verificador com letras (valor ASCII − 48)", () => {
+    expect(isValidCnpj("12.ABC.345/01DE-35")).toBe(true);
+    expect(isValidCnpj("12ABC34501DE35")).toBe(true);
+    expect(isValidCnpj("12.ABC.345/01DE-36")).toBe(false);
+    expect(isValidCnpj("12.abc.345/01de-35")).toBe(false);
+  });
+
+  it("detecta o CNPJ alfanumérico formatado e mantém o numérico", () => {
+    expect(kinds("inscrita no CNPJ sob o nº 12.ABC.345/01DE-35, com sede")).toEqual([["CNPJ", "12.ABC.345/01DE-35"]]);
+    expect(kinds("CNPJ 11.222.333/0001-81")).toEqual([["CNPJ", "11.222.333/0001-81"]]);
+  });
+
+  it("não confunde código alfanumérico sem formatação com CNPJ", () => {
+    expect(kinds("lote ABCDEFGHIJKL35 e referência 12ABC34501DE35X")).toEqual([]);
+  });
+});

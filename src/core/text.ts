@@ -6,6 +6,7 @@
 // próximos na horizontal. Colunas de tabela (distantes) continuam separadas por quebra de linha.
 
 import * as mupdf from "mupdf";
+import { openPdf } from "./diagnose.ts";
 
 export interface Char {
   c: string;
@@ -70,8 +71,8 @@ export function readPage(page: mupdf.Page): PageText {
 }
 
 /** Texto de todas as páginas, com as linhas visuais reconstruídas (para sugestões e análise). */
-export function documentText(pdf: Uint8Array): string {
-  const doc = mupdf.Document.openDocument(pdf, "application/pdf");
+export function documentText(pdf: Uint8Array, password?: string): string {
+  const doc = openPdf(pdf, password);
   const pages: string[] = [];
   for (let i = 0; i < doc.countPages(); i++) pages.push(readPage(doc.loadPage(i)).text);
   return pages.join("\n");

@@ -19,6 +19,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { anonymizePdf, type Person } from "../src/core/anonymize.ts";
+import { diagnosePdf } from "../src/core/diagnose.ts";
 import { extractText, findLeaks } from "../src/core/leaks.ts";
 import { suggestEntities } from "../src/core/names.ts";
 import { documentText } from "../src/core/text.ts";
@@ -77,6 +78,10 @@ describe.each(pdfs)("fixture %s", (file) => {
       expect(wrong.map((s) => s.name)).toEqual([]);
     });
   }
+
+  it("não gera aviso de diagnóstico (página escaneada, ilegível…) num PDF fictício comum", () => {
+    expect(diagnosePdf(input).warnings).toEqual([]);
+  });
 
   it("não deixa nenhum dado substituído legível no PDF", () => {
     expect(findLeaks(result.pdf, result.replacements)).toEqual([]);

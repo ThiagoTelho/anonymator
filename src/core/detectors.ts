@@ -54,18 +54,23 @@ export function isValidCpf(value: string): boolean {
   return digit(9) === Number(d[9]) && digit(10) === Number(d[10]);
 }
 
-/** Valida os dois dígitos verificadores de um CNPJ numérico. */
+/**
+ * Valida os dois dígitos verificadores de um CNPJ, numérico ou alfanumérico (Receita Federal, a partir de
+ * julho/2026: 12 primeiros caracteres em [0-9A-Z], 2 dígitos verificadores numéricos). Cada caractere vale
+ * seu código ASCII − 48 (dígitos valem eles mesmos; A = 17, B = 18…).
+ */
 export function isValidCnpj(value: string): boolean {
-  const d = onlyDigits(value);
-  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const c = value.replace(/[./-]/g, "");
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
+  const v = (i: number) => c.charCodeAt(i) - 48;
   const digit = (len: number) => {
     const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     let sum = 0;
-    for (let i = 0; i < len; i++) sum += Number(d[i]) * weights[i];
+    for (let i = 0; i < len; i++) sum += v(i) * weights[i];
     const r = sum % 11;
     return r < 2 ? 0 : 11 - r;
   };
-  return digit(12) === Number(d[12]) && digit(13) === Number(d[13]);
+  return digit(12) === v(12) && digit(13) === v(13);
 }
 
 /** Valida o dígito verificador de um PIS/PASEP/NIT. */
@@ -156,6 +161,8 @@ const RULES: Rule[] = [
   { kind: "PROTOCOLO", pattern: /(?<=[/=])\d{10,}(?=[?&#/\s]|$)/g },
   { kind: "RASTREIO", pattern: /\b[A-Z]{2}\d{9}BR\b/g },
   { kind: "CNPJ", pattern: /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, validate: isValidCnpj },
+  // CNPJ alfanumérico: só formatado (pontos, barra e hífen), para não confundir com códigos soltos.
+  { kind: "CNPJ", pattern: /\b[0-9A-Z]{2}\.[0-9A-Z]{3}\.[0-9A-Z]{3}\/[0-9A-Z]{4}-\d{2}\b/g, validate: isValidCnpj },
   { kind: "CPF", pattern: /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, validate: isValidCpf },
   // Número de auto de infração do MTE (8 dígitos + dígito): formato próprio, mesmo sem rótulo na tabela.
   { kind: "PROTOCOLO", pattern: /(?<![\d./-])\d{8}-\d(?![\d-])/g },

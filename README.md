@@ -16,7 +16,7 @@ só com o usuário.
 | Grupo | Dados |
 |---|---|
 | Pessoas e empresas | Nomes sugeridos automaticamente (e revisados pelo usuário) ou digitados; grafias variantes, "Sr. Sobrenome", apelidos, iniciais (R.A.M.); razões sociais e nomes curtos de empresas |
-| Documentos | CPF, CNPJ e PIS (com dígito verificador), RG, CNH, CTPS, título de eleitor (zona e seção), OAB, RENAVAM, placa |
+| Documentos | CPF, CNPJ (inclusive alfanumérico) e PIS (com dígito verificador), RG, CNH, CTPS, título de eleitor (zona e seção), OAB, RENAVAM, placa |
 | Contato e endereço | Telefone, e-mail, endereço (logradouro, número, complementos, bairro), CEP |
 | Dados bancários | Agência, conta, chave PIX aleatória |
 | Outros | Data de nascimento, escola, CIF/matrícula, registro de sociedade de advogados |
@@ -66,7 +66,9 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/anonymize.ts` | Motor: localização, remoção, marcadores, legenda e limpeza do arquivo |
 | `src/core/labels.ts` | Encaixe legível do marcador (compressão, fonte mínima, forma curta) |
 | `src/core/people.ts` | Junta as sugestões marcadas e os nomes digitados |
-| `src/core/leaks.ts` | Verificação independente: reabre o PDF gerado e procura os dados originais |
+| `src/core/diagnose.ts` | Diagnóstico antes de anonimizar: páginas escaneadas, texto ilegível, imagens grandes, assinatura digital, senha |
+| `src/core/leaks.ts` | Verificação independente: reabre o PDF gerado e procura os dados originais (mostrada na tela como verificação final) |
+| `src/core/summary.ts` | Resumo do que foi removido, por tipo |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
 | `src/worker.ts` | Web Worker que executa análise e anonimização fora da thread da interface |
 | `src/App.tsx` | Interface (React + Tailwind) |
@@ -83,6 +85,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `scripts/truth-to-spec.py` | Converte um gabarito independente no `.json` da fixture |
 | `scripts/eval-dataset.ts` | Relatório por categoria num conjunto com gabarito: vazamentos, apagamento em excesso, falsos positivos |
 | `scripts/preview-fixture.ts` | Anonimiza uma fixture como o usuário faria e grava PDF, texto e imagem de uma página em `out/` |
+| `scripts/diagnose.ts` | Diagnóstico de PDFs **reais** sem expor conteúdo: só estatísticas (páginas, avisos, contagens por tipo, tempos, memória) |
 | `scripts/verify.ts` | Anonimiza uma fixture com os nomes do `.json` e grava a saída em `out/` |
 | `scripts/build-first-names.py` | Regera a lista de primeiros nomes |
 
@@ -115,6 +118,7 @@ pnpm build
 | `pnpm verify [fixture.pdf]` | Anonimiza uma fixture e grava a saída em `out/` |
 | `pnpm preview:fixture <nome> <página>` | Anonimiza como o usuário faria e grava PDF, texto e imagem em `out/` |
 | `node scripts/eval-dataset.ts <pasta> --misses` | Avalia um conjunto com gabarito estruturado |
+| `pnpm diagnose <arquivo.pdf \| pasta> [--senha=…] [--json]` | Diagnóstico de PDFs reais, só estatísticas, seguro para compartilhar |
 
 ## Testes
 
@@ -138,9 +142,11 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
 
 ## Limitações conhecidas
 
-- **PDFs escaneados não são suportados**, e páginas sem camada de texto **ainda não são avisadas** na interface
-  (prioridade antes da primeira versão de teste).
-- PDFs com senha, fontes sem mapeamento de caracteres e assinaturas digitais ainda não têm tratamento próprio.
+- **PDFs escaneados não são suportados.** Páginas sem texto legível (escaneadas ou com fonte sem mapa de
+  caracteres) são **avisadas** antes e depois de anonimizar, com o número da página, e a verificação final diz que
+  elas não puderam ser conferidas. Páginas com imagem grande também geram aviso.
+- PDFs com senha são abertos com a senha informada; o PDF anonimizado sai sem senha. Assinatura digital gera aviso
+  (ela deixa de valer).
 - A sugestão de nomes usa os primeiros nomes do Censo 2010: nomes muito raros ou de pessoas nascidas depois de 2010
   podem não ser sugeridos. Por isso o usuário sempre revisa e pode acrescentar nomes.
 - Endereços só são detectados a partir do tipo de logradouro (Rua, Av., Rodovia…) com número, complemento ou bairro.

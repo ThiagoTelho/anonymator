@@ -4,6 +4,7 @@
 import * as mupdf from "mupdf";
 import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts";
 import { fitLabel, shortLabel } from "./labels.ts";
+import { openPdf } from "./diagnose.ts";
 import { readPage, type Char } from "./text.ts";
 
 export interface Person {
@@ -18,6 +19,8 @@ export interface AnonymizeOptions {
   people: Person[];
   /** Detectar CPF, CNPJ, e-mail, telefone, CEP, OAB e nº de processo. Padrão: true. */
   detectPatterns?: boolean;
+  /** Senha de abertura, se o PDF for protegido. O PDF anonimizado sai sem senha. */
+  password?: string;
 }
 
 export interface Replacement {
@@ -55,8 +58,10 @@ function lineRects(chars: Char[], start: number, end: number): mupdf.Rect[] {
 function entityKey(m: Match): string {
   const digits = m.text.replace(/\D/g, "");
   switch (m.kind) {
-    case "CPF":
     case "CNPJ":
+      // CNPJ alfanumérico: letras fazem parte da identidade.
+      return `CNPJ:${m.text.replace(/[^0-9A-Z]/g, "")}`;
+    case "CPF":
     case "CEP":
     case "PROCESSO":
     case "TELEFONE":
@@ -76,7 +81,7 @@ const pdfString = (s: string) =>
   }).join("")})`;
 
 export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): AnonymizeResult {
-  const doc = new mupdf.PDFDocument(input);
+  const doc = openPdf(input, options.password);
   const font = new mupdf.Font("Helvetica");
   const fontRef = doc.addSimpleFont(font, "Latin");
 
@@ -198,7 +203,7 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
   scrub(doc);
 
   // garbage: descarta objetos que ficaram sem referência (inclusive o conteúdo antigo das páginas).
-  const pdf = doc.saveToBuffer("garbage=deduplicate,compress,clean").asUint8Array();
+  const pdf = doc.saveToBuffer("encrypt=none,garbage=deduplicate,compress,clean").asUint8Array();
   return {
     pdf: pdf.slice(),
     text: pageTexts.map((t, i) => `--- Página ${i + 1} ---\n${t.trim()}`).join("\n\n"),

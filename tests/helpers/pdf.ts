@@ -62,3 +62,64 @@ export function markerSizeRatios(pdf: Uint8Array): number[] {
   }
   return ratios;
 }
+
+/** Página "escaneada": a página renderizada vira uma imagem, sem nenhum texto extraível. */
+export function scannedPagePdf(pdf: Uint8Array, pageIndex = 0): Uint8Array {
+  const src = mupdf.Document.openDocument(pdf, "application/pdf");
+  const page = src.loadPage(pageIndex);
+  const [x0, y0, x1, y1] = page.getBounds();
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const pix = page.toPixmap(mupdf.Matrix.scale(2, 2), mupdf.ColorSpace.DeviceRGB, false, true);
+  const out = new mupdf.PDFDocument();
+  const resources = out.newDictionary();
+  const xobjects = out.newDictionary();
+  xobjects.put("Im0", out.addImage(new mupdf.Image(pix)));
+  resources.put("XObject", xobjects);
+  out.insertPage(-1, out.addPage([0, 0, w, h], 0, resources, `q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`));
+  return out.saveToBuffer("compress").asUint8Array().slice();
+}
+
+/** Junta PDFs na ordem dada. */
+export function concatPdfs(pdfs: Uint8Array[]): Uint8Array {
+  const out = new mupdf.PDFDocument();
+  for (const p of pdfs) {
+    const src = new mupdf.PDFDocument(p);
+    for (let i = 0; i < src.countPages(); i++) out.graftPage(-1, src, i);
+  }
+  return out.saveToBuffer("compress").asUint8Array().slice();
+}
+
+/** Remove o mapa de caracteres (ToUnicode) das fontes: o texto continua visível, mas a extração vira "�". */
+export function illegiblePdf(pdf: Uint8Array): Uint8Array {
+  const doc = new mupdf.PDFDocument(pdf);
+  for (let i = 1; i < doc.countObjects(); i++) {
+    const o = doc.newIndirect(i).resolve();
+    if (o.isDictionary() && o.get("Type").isName() && o.get("Type").asName() === "Font") o.delete("ToUnicode");
+  }
+  return doc.saveToBuffer("garbage").asUint8Array().slice();
+}
+
+/** Protege o PDF com senha de abertura. */
+export function encryptedPdf(pdf: Uint8Array, password: string): Uint8Array {
+  return new mupdf.PDFDocument(pdf).saveToBuffer(`encrypt=aes-256,user-password=${password},owner-password=${password}-dono`).asUint8Array().slice();
+}
+
+/** Acrescenta um campo de assinatura digital (vazio de criptografia, só a estrutura que os leitores reconhecem). */
+export function signedPdf(pdf: Uint8Array): Uint8Array {
+  const doc = new mupdf.PDFDocument(pdf);
+  const sig = doc.addObject(doc.newDictionary());
+  sig.put("Type", doc.newName("Sig"));
+  sig.put("Filter", doc.newName("Adobe.PPKLite"));
+  const field = doc.addObject(doc.newDictionary());
+  field.put("FT", doc.newName("Sig"));
+  field.put("T", doc.newString("Assinatura1"));
+  field.put("V", sig);
+  const fields = doc.newArray();
+  fields.push(field);
+  const acro = doc.newDictionary();
+  acro.put("Fields", fields);
+  acro.put("SigFlags", doc.newInteger(3));
+  doc.getTrailer().get("Root").put("AcroForm", acro);
+  return doc.saveToBuffer("").asUint8Array().slice();
+}

@@ -72,6 +72,12 @@ describe("anonymizePdf — marcadores consistentes", () => {
     expect(cpfs[0].occurrences).toBe(2);
   });
 
+  it("distingue CNPJs alfanuméricos que só diferem nas letras (mesmos dígitos)", () => {
+    const result = run(["<p>Contratos com 12.ABC.345/01DE-35, com 12.ABN.345/01DE-35 e de novo com 12.ABC.345/01DE-35.</p>"]);
+    const cnpjs = result.replacements.filter((r) => r.kind === "CNPJ");
+    expect(cnpjs.map((r) => r.occurrences)).toEqual([2, 1]);
+  });
+
   it("dá à variante mais longa prioridade sobre a mais curta", () => {
     const result = run(["<p>João Pedro Almeida assinou. Depois, Almeida sumiu.</p>"], [["Almeida", "João Pedro Almeida"]]);
     expect(result.replacements[0].occurrences).toBe(2);
