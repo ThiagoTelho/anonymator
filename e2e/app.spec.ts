@@ -222,15 +222,22 @@ test("processo grande: progresso por página e cancelar volta para a revisão", 
 
 test("restaurar com a tabela .json carregada (sem anonimizar nesta sessão)", async ({ page }) => {
   await page.getByRole("button", { name: /Restaurar/ }).click();
+  await expect(page.getByTestId("tabela-status")).toContainText("Nenhuma carregada");
+  await expect(page.getByText("Carregar tabela (.json)")).toBeVisible();
   await page.locator("#tabela").setInputFiles({
     name: "correspondencia.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify([{ placeholder: "[PESSOA_1]", kind: "PESSOA", originals: ["Ana Souza"], occurrences: 1 }])),
   });
+  await expect(page.getByTestId("tabela-status")).toContainText("correspondencia.json · 1 marcador");
   await page.getByLabel("Resposta da IA").fill("[PESSOA_1] e [P1] e PESSOA_1; [PESSOA_99].");
   await expect(page.getByTestId("restaurados")).toContainText("3 marcadores restaurados");
   await expect(page.getByTestId("restaurados")).toContainText("[PESSOA_99]");
   expect(await page.getByLabel("Texto restaurado").inputValue()).toBe("Ana Souza e Ana Souza e Ana Souza; [PESSOA_99].");
+
+  // Arquivo que não é a tabela: mensagem clara.
+  await page.locator("#tabela").setInputFiles({ name: "outro.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+  await expect(page.getByText("não é uma tabela de correspondência")).toBeVisible();
 });
 
 test("privacidade: CSP ativa, nenhuma requisição fora da origem e nenhuma violação de CSP", async ({ page, baseURL }) => {

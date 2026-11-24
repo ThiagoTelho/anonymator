@@ -3,14 +3,14 @@ import { useState } from "react";
 import type { Replacement } from "../core/anonymize.ts";
 import { parseCorrespondence, restoreText } from "../core/restore.ts";
 import { Card } from "./common.tsx";
-import { buttonSecondary } from "./helpers.ts";
+import { buttonGhost, buttonSecondary } from "./helpers.ts";
 
 export function StepRestore({ current }: { current: Replacement[] | null }) {
   const [aiText, setAiText] = useState("");
-  const [loaded, setLoaded] = useState<Replacement[] | null>(null);
+  const [loaded, setLoaded] = useState<{ name: string; table: Replacement[] } | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const table = loaded ?? current;
+  const table = loaded?.table ?? current;
   const result = table && aiText ? restoreText(aiText, table) : null;
 
   return (
@@ -21,21 +21,32 @@ export function StepRestore({ current }: { current: Replacement[] | null }) {
           Cole a resposta da IA. Os marcadores ([PESSOA_1], [CPF_2]…) voltam a ser os dados reais, usando a tabela de correspondência.
           Também acontece só no seu navegador.
         </p>
-        <div className="mt-3 text-sm">
-          {current && !loaded && <p className="text-stone-600">Usando a tabela do documento anonimizado nesta sessão.</p>}
-          <label className="mt-1 block text-stone-600" htmlFor="tabela">
-            {current ? "Ou carregue outra tabela (.json):" : "Carregue a tabela de correspondência (.json) baixada do Anonimador:"}
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm" data-testid="tabela-status">
+          <div className="min-w-0 flex-1">
+            <div className="font-medium text-stone-800">Tabela de correspondência</div>
+            <div className="truncate text-stone-600">
+              {loaded
+                ? `${loaded.name} · ${loaded.table.length} ${loaded.table.length === 1 ? "marcador" : "marcadores"}`
+                : current
+                  ? `Do documento anonimizado nesta sessão · ${current.length} ${current.length === 1 ? "marcador" : "marcadores"}`
+                  : "Nenhuma carregada. Use o arquivo .json baixado no resultado."}
+            </div>
+          </div>
+          {/* Botão estilizado sobre o seletor de arquivo nativo (escondido, mas acessível pelo rótulo). */}
+          <label htmlFor="tabela" className={`${buttonSecondary} cursor-pointer`}>
+            {loaded || current ? "Carregar outra tabela" : "Carregar tabela (.json)"}
           </label>
           <input
             id="tabela"
             type="file"
             accept="application/json,.json"
-            className="mt-1 block text-sm"
+            className="sr-only"
             onChange={async (e) => {
               const f = e.target.files?.[0];
+              e.target.value = "";
               if (!f) return;
               try {
-                setLoaded(parseCorrespondence(await f.text()));
+                setLoaded({ name: f.name, table: parseCorrespondence(await f.text()) });
                 setError("");
               } catch (err) {
                 setLoaded(null);
@@ -43,8 +54,13 @@ export function StepRestore({ current }: { current: Replacement[] | null }) {
               }
             }}
           />
-          {error && <p className="mt-1 text-red-700">{error}</p>}
+          {loaded && current && (
+            <button className={buttonGhost} onClick={() => setLoaded(null)}>
+              Usar a da sessão
+            </button>
+          )}
         </div>
+        {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
       </Card>
 
       <div className="grid gap-5 md:grid-cols-2">
