@@ -1,4 +1,6 @@
-# Anonymator
+# Anonimador
+
+> [anonimador.com.br](https://anonimador.com.br) (ainda não publicado) · repositório `anonymator`
 
 Aplicação web que anonimiza dados pessoais de PDFs de processos (judiciais e do Ministério Público)
 **inteiramente no navegador**, para que advogados possam usar ferramentas de IA sem enviar dados pessoais
@@ -63,7 +65,10 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/text.ts` | Extração do texto com a posição de cada caractere; reconstrói linhas visuais (texto justificado partido) e parágrafos pela geometria |
 | `src/core/detectors.ts` | Detectores determinísticos de dados com formato fixo, endereços e busca de nomes (ignora maiúsculas, acentos, quebras de linha; pronome de tratamento fica no texto) |
 | `src/core/names.ts` | Sugestão de pessoas e empresas, agrupamento de grafias, apelidos, agentes públicos, exclusão de lugares |
-| `src/core/anonymize.ts` | Motor: localização, remoção, marcadores, legenda e limpeza do arquivo |
+| `src/core/plan.ts` | Planejamento: o que será removido em cada página (trechos, tipo, pessoa, retângulos) — fonte única do motor e da pré-visualização |
+| `src/core/anonymize.ts` | Motor: aplica o planejamento (remoção real), marcadores, legenda e limpeza do arquivo |
+| `src/core/preview.ts` | Pré-visualização: imagem da página, caixas do que será removido/desmarcado e palavras para seleção |
+| `src/core/entities.ts` | Lista editável de pessoas e empresas (marcar, grafias, juntar, separar, criar) |
 | `src/core/labels.ts` | Encaixe legível do marcador (compressão, fonte mínima, forma curta) |
 | `src/core/people.ts` | Junta as sugestões marcadas e os nomes digitados |
 | `src/core/diagnose.ts` | Diagnóstico antes de anonimizar: páginas escaneadas, texto ilegível, imagens grandes, assinatura digital, senha |
@@ -73,7 +78,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/errors.ts` | Mensagens de erro claras (não é PDF, PDF danificado, senha, falta de memória) |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
 | `src/worker.ts` | Web Worker que executa análise e anonimização fora da thread da interface |
-| `src/App.tsx` | Interface (React + Tailwind) |
+| `src/App.tsx`, `src/ui/` | Interface em quatro etapas (React + Tailwind): documento, revisão com pré-visualização, resultado, restaurar |
 
 **Testes e ferramentas**
 
@@ -139,10 +144,11 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
 - **Variação de layout** (`tests/dataset.test.ts`, conjunto só local, pulado sem a pasta): 50 processos fictícios do MPT
   com fontes, papel, corpo, alinhamento, colunas, tabelas, formatos de data e moeda, máscaras e marca d'água variados.
   Hoje: 100% dos 2.625 dados pessoais removidos e nenhum dos 450 itens não pessoais conferidos apagado.
-- **Interface** (`e2e/`, Playwright, contra o build de produção com a CSP): fluxo completo com sugestões,
-  desmarcação e PDF baixado conferido; nome digitado à mão; página escaneada; PDF com senha; arquivo que não é PDF;
-  progresso e cancelamento num processo grande; restauração da resposta da IA; e privacidade — CSP presente,
-  **nenhuma requisição fora da origem e nenhuma violação de CSP** durante todo o fluxo.
+- **Interface** (`e2e/`, Playwright, contra o build de produção com a CSP): fluxo completo nas quatro etapas com PDF
+  baixado conferido; pré-visualização acompanhando as escolhas (tipo desligado, pessoa desmarcada, clique no destaque);
+  edição da lista (grafias, nome digitado, juntar); seleção de trecho na página; página escaneada; senha; arquivo
+  inválido; progresso/cancelar; restauração com tabela carregada; e privacidade — CSP presente, **nenhuma requisição
+  fora da origem e nenhuma violação de CSP** durante todo o fluxo, inclusive navegando na pré-visualização.
 
 **Nunca use processos reais em testes ou fixtures do repositório.** Só documentos fictícios, com dados inventados.
 

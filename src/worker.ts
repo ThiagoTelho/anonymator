@@ -9,11 +9,16 @@ import type { AnonymizeOptions, AnonymizeResult } from "./core/anonymize.ts";
 import type { Diagnosis } from "./core/diagnose.ts";
 import type { ErrorCode } from "./core/errors.ts";
 import type { Leak } from "./core/leaks.ts";
+import type { Kind } from "./core/detectors.ts";
 import type { Suggestion } from "./core/names.ts";
+import type { PreviewBox, PreviewOptions, PreviewWord } from "./core/preview.ts";
 
 export type WorkerRequest =
   | { type: "analyze"; pdf: ArrayBuffer; password?: string }
-  | { type: "anonymize"; pdf: ArrayBuffer; options: Omit<AnonymizeOptions, "onProgress"> };
+  | { type: "anonymize"; pdf: ArrayBuffer; options: Omit<AnonymizeOptions, "onProgress"> }
+  // Sessão de pré-visualização: "open" guarda o documento no worker; "preview" desenha uma página.
+  | { type: "open"; pdf: ArrayBuffer; password?: string }
+  | { type: "preview"; index: number; options: PreviewOptions; scale: number; seq?: number };
 
 export type Phase = "carregando" | "diagnostico" | "leitura" | "anonimizacao" | "verificacao";
 
@@ -22,7 +27,9 @@ export type WorkerProgress = { progress: true; phase: Phase; done: number; total
 export type WorkerError = { ok: false; code: ErrorCode; error: string };
 
 export type WorkerResponse =
-  | { ok: true; type: "analyze"; suggestions: Suggestion[]; diagnosis: Diagnosis }
+  | { ok: true; type: "analyze"; suggestions: Suggestion[]; diagnosis: Diagnosis; detected: Partial<Record<Kind, number>> }
+  | { ok: true; type: "opened"; pages: number }
+  | { ok: true; type: "preview"; index: number; png: Uint8Array; width: number; height: number; boxes: PreviewBox[]; words: PreviewWord[] }
   | { ok: true; type: "anonymize"; result: AnonymizeResult; leaks: Leak[] }
   | WorkerError;
 
@@ -30,22 +37,38 @@ const post = (msg: WorkerResponse | WorkerProgress, transfer: Transferable[] = [
   (self as unknown as Worker).postMessage(msg, transfer);
 const progress = (phase: Phase) => (done: number, total: number) => post({ progress: true, phase, done, total });
 
+/** Documento aberto pela sessão de pré-visualização. */
+let session: import("mupdf").PDFDocument | null = null;
+
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   try {
     const req = e.data;
+    if (req.type === "open") {
+      const { openPdf } = await import("./core/diagnose.ts");
+      session = openPdf(new Uint8Array(req.pdf), req.password);
+      return post({ ok: true, type: "opened", pages: session.countPages() });
+    }
+    if (req.type === "preview") {
+      if (!session) throw new Error("Documento não aberto para pré-visualização.");
+      const { previewPage } = await import("./core/preview.ts");
+      const p = previewPage(session, req.index, req.options, req.scale);
+      // `seq` volta na resposta para a interface casar pedido e resposta.
+      return (self as unknown as Worker).postMessage({ ok: true, type: "preview", index: req.index, seq: req.seq, ...p }, [p.png.buffer]);
+    }
     progress("carregando")(0, 1);
     if (req.type === "analyze") {
-      const [{ documentText }, { diagnosePdf }, { parseFirstNames, suggestEntities }, names] = await Promise.all([
+      const [{ documentText }, { diagnosePdf }, { parseFirstNames, suggestEntities }, { detectedCounts }, names] = await Promise.all([
         import("./core/text.ts"),
         import("./core/diagnose.ts"),
         import("./core/names.ts"),
+        import("./core/preview.ts"),
         import("./data/first-names.txt?raw"),
       ]);
       const pdf = new Uint8Array(req.pdf);
       const diagnosis = diagnosePdf(pdf, req.password, progress("diagnostico"));
       const text = documentText(pdf, req.password, progress("leitura"));
       const suggestions = suggestEntities(text, parseFirstNames(names.default));
-      post({ ok: true, type: "analyze", suggestions, diagnosis });
+      post({ ok: true, type: "analyze", suggestions, diagnosis, detected: detectedCounts(text) });
     } else {
       const [{ anonymizePdf }, { findLeaks }] = await Promise.all([import("./core/anonymize.ts"), import("./core/leaks.ts")]);
       const result = anonymizePdf(new Uint8Array(req.pdf), { ...req.options, onProgress: progress("anonimizacao") });
@@ -57,6 +80,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   } catch (err) {
     const { friendlyError } = await import("./core/errors.ts");
     const f = friendlyError(err);
-    post({ ok: false, code: f.code, error: f.message });
+    const seq = (e.data as { seq?: number }).seq;
+    (self as unknown as Worker).postMessage({ ok: false, code: f.code, error: f.message, seq });
   }
 };

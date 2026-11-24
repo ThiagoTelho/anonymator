@@ -5,12 +5,21 @@ import { extractText } from "../src/core/leaks.ts";
 const TMP = "e2e/.tmp";
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ");
 
+/** Etapa 1: escolhe o PDF e espera a leitura. */
 async function choose(page: Page, path: string) {
   await page.locator("#pdf").setInputFiles(path);
 }
 
+/** Etapas 1 → 2: escolhe o PDF e abre a revisão. */
+async function review(page: Page, path: string) {
+  await choose(page, path);
+  await page.getByRole("button", { name: "Revisar o que será removido" }).click({ timeout: 60_000 });
+  await expect(page.getByRole("list", { name: "Lista de pessoas e empresas" })).toBeVisible();
+}
+
+/** Etapa 2 → 3. */
 async function anonymize(page: Page) {
-  await page.getByRole("button", { name: "Anonimizar" }).click();
+  await page.getByRole("button", { name: "Anonimizar", exact: true }).click();
   await expect(page.getByTestId("verificacao")).toBeVisible({ timeout: 30_000 });
 }
 
@@ -23,44 +32,125 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/");
 });
 
-test("fluxo completo: sugestões, desmarcar, anonimizar, verificação final e PDF baixado sem os dados", async ({ page }) => {
+test("fluxo completo nas quatro etapas: revisão, PDF baixado sem os dados e restauração", async ({ page }) => {
+  await expect(page.getByRole("button", { name: /Revisão/ })).toHaveAttribute("aria-disabled", "true");
   await choose(page, "fixtures/alimentos-esaj.pdf");
-  const list = page.getByRole("list", { name: "Sugestões" });
-  await expect(list).toBeVisible();
+  await expect(page.getByRole("region", { name: "Leitura do documento" })).toContainText("Páginas");
+  await page.getByRole("button", { name: "Revisar o que será removido" }).click();
 
-  // Agentes públicos vêm desmarcados; partes vêm marcadas.
+  // Agentes públicos vêm desmarcados; partes vêm marcadas. O usuário desmarca a advogada.
   await expect(page.getByRole("checkbox", { name: "Lívia Montenegro Saraiva" })).not.toBeChecked();
   await expect(page.getByRole("checkbox", { name: "Diego Henrique Medeiros" })).toBeChecked();
-  // O usuário desmarca a advogada.
   await page.getByRole("checkbox", { name: "TAINA HOLANDA REIS" }).uncheck();
 
   await anonymize(page);
   await expect(page.getByTestId("verificacao")).toContainText("nenhum dos dados substituídos pôde ser encontrado");
-  await expect(page.getByRole("table", { name: "Resumo" })).toContainText("Pessoas");
+  await expect(page.getByRole("button", { name: /Resultado/ })).toHaveAttribute("aria-current", "step");
 
-  const pdf = norm(extractText(await downloadBytes(page, "Baixar PDF")));
+  const pdf = norm(extractText(await downloadBytes(page, "Baixar PDF anonimizado")));
   expect(pdf).not.toContain("diego henrique medeiros");
   expect(pdf).not.toContain("ravi alcantara medeiros");
-  expect(pdf).toContain("livia montenegro saraiva"); // juíza: desmarcada por padrão
-  expect(pdf).toContain("taina holanda reis"); // desmarcada pelo usuário
+  expect(pdf).toContain("livia montenegro saraiva");
+  expect(pdf).toContain("taina holanda reis");
+
+  await page.getByRole("button", { name: "Restaurar a resposta da IA" }).click();
+  await page.getByLabel("Resposta da IA").fill("O réu [PESSOA_1] deve pagar alimentos.");
+  await expect(page.getByTestId("restaurados")).toContainText("1 marcador restaurado");
+  expect(await page.getByLabel("Texto restaurado").inputValue()).not.toContain("[PESSOA_1]");
 });
 
-test("nome digitado à mão é anonimizado, mantendo o pronome de tratamento", async ({ page }) => {
-  await choose(page, "fixtures/peticao-ficticia.pdf");
-  await expect(page.getByRole("list", { name: "Sugestões" })).toBeVisible();
-  // Desmarca a sugestão automática e declara à mão, com a forma "Sra. Oliveira".
-  await page.getByRole("checkbox", { name: "Maria Aparecida dos Santos Oliveira" }).uncheck();
-  await page.getByLabel("3. Acrescente nomes que faltaram").fill("Maria Aparecida dos Santos Oliveira; Sra. Oliveira");
-  await anonymize(page);
-  const txt = new TextDecoder().decode(await downloadBytes(page, "Baixar texto (.txt)"));
-  expect(norm(txt)).not.toContain("oliveira");
-  expect(txt).toMatch(/Sra\. \[PESSOA_\d+\]/);
+test("pré-visualização mostra o que será removido e acompanha as escolhas", async ({ page }) => {
+  await review(page, "fixtures/peticao-ficticia.pdf");
+  await expect(page.getByRole("img", { name: "Página 1" })).toBeVisible();
+  const removed = page.getByTestId("destaque-removido");
+  await expect(removed.first()).toBeVisible();
+  const before = await removed.count();
+
+  // Desligar um tipo de dado: o CEP deixa de ser removido e aparece como mantido.
+  await page.getByRole("button", { name: /^CEP/ }).click();
+  await expect(page.getByRole("button", { name: /^CEP/ })).toHaveAttribute("aria-pressed", "false");
+  await expect(removed).toHaveCount(before - 1);
+  await expect(page.getByTestId("destaque-mantido")).toHaveCount(1);
+
+  // Desmarcar uma pessoa: os destaques dela passam a tracejado.
+  await page.getByRole("checkbox", { name: "Carlos Eduardo Ferreira" }).uncheck();
+  await expect(page.getByRole("button", { name: "Carlos Eduardo Ferreira: não será removido" }).first()).toBeVisible();
+
+  // Clicar num destaque abre a pessoa correspondente na lista.
+  await page.getByRole("button", { name: "João Pedro Almeida: será removido" }).first().click();
+  await expect(page.getByRole("button", { name: "Grafias de João Pedro Almeida" })).toHaveAttribute("aria-expanded", "true");
 });
+
+test("editar a lista: remover e acrescentar grafia, nome digitado e juntar pessoas", async ({ page }) => {
+  await review(page, "fixtures/peticao-ficticia.pdf");
+  const maria = "Maria Aparecida dos Santos Oliveira";
+  const variants = page.getByRole("list", { name: `Grafias procuradas de ${maria}` });
+  // A sugestão já liga "Sra. Oliveira" a Maria: remove e acrescenta de novo.
+  await page.getByRole("button", { name: `Grafias de ${maria}` }).click();
+  await expect(variants).toContainText("Sra. Oliveira");
+  await page.getByRole("button", { name: "Remover Sra. Oliveira" }).click();
+  await expect(variants).not.toContainText("Sra. Oliveira");
+  await page.getByLabel(`Nova grafia de ${maria}`).fill("Sra. Oliveira");
+  await page.getByRole("button", { name: "+ grafia" }).click();
+  await expect(variants).toContainText("Sra. Oliveira");
+
+  // Nome digitado à mão ("Goiânia", só para o teste) e depois juntado com João.
+  await page.getByLabel("Nova pessoa").fill("Goiânia");
+  await page.getByRole("button", { name: "Acrescentar" }).click();
+  await expect(page.getByRole("checkbox", { name: "Goiânia" })).toBeChecked();
+  await page.getByRole("button", { name: "Grafias de João Pedro Almeida" }).click();
+  await page.getByLabel("Juntar João Pedro Almeida com").selectOption({ label: "Goiânia" });
+  await expect(page.getByRole("checkbox", { name: "Goiânia" })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Grafias procuradas de João Pedro Almeida" })).toContainText("Goiânia");
+
+  await anonymize(page);
+  const txt = new TextDecoder().decode(await downloadBytes(page, "Baixar texto para a IA"));
+  expect(norm(txt)).not.toMatch(/oliveira|almeida|goiania/);
+  expect(txt).toMatch(/Sra\. \[PESSOA_\d+\]/);
+  // Goiânia virou grafia de João: mesmo marcador que ele.
+  const joao = /O Sr\. (\[PESSOA_\d+\])/.exec(txt)![1];
+  expect(txt).toContain(`${joao}, 15 de setembro`);
+});
+
+test("selecionar um trecho na página cria uma pessoa nova", async ({ page }) => {
+  await review(page, "fixtures/peticao-ficticia.pdf");
+  await expect(page.getByRole("img", { name: "Página 1" })).toBeVisible();
+  const words = page.getByTestId("palavra");
+  const texts = await page.evaluate(() => [...document.querySelectorAll('[data-testid="palavra"]')].length);
+  expect(texts).toBeGreaterThan(20);
+  // "brasileira," não está em nenhum destaque (destaques ficam por cima das palavras).
+  const target = words.nth(await findWord(page, "brasileira,"));
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+  await page.mouse.up();
+  const group = page.getByRole("group", { name: "Trecho selecionado" });
+  await expect(group).toContainText("brasileira");
+  await group.getByRole("button", { name: "Nova pessoa" }).click();
+  // A pontuação final é descartada; o trecho vira pessoa marcada e passa a ser destacado na página.
+  await expect(page.getByRole("checkbox", { name: "brasileira" })).toBeChecked();
+  await expect(page.getByRole("button", { name: "brasileira: será removido" })).toBeVisible();
+});
+
+/** Índice da palavra da pré-visualização cujo texto é `text` (lido do worker via o título da imagem). */
+async function findWord(page: Page, text: string): Promise<number> {
+  // As palavras não têm texto visível; o teste reconstrói a ordem pela mesma extração do PDF.
+  const { previewPage } = await import("../src/core/preview.ts");
+  const mupdf = await import("mupdf");
+  const doc = mupdf.Document.openDocument(readFileSync("fixtures/peticao-ficticia.pdf"), "application/pdf");
+  const p = previewPage(doc, 0, { people: [], selected: [] }, 1);
+  const i = p.words.findIndex((w) => w.text === text);
+  expect(i, `palavra ${text}`).toBeGreaterThanOrEqual(0);
+  expect(await page.getByTestId("palavra").count()).toBe(p.words.length);
+  return i;
+}
 
 test("página escaneada é avisada e a verificação final diz que ela não pôde ser conferida", async ({ page }) => {
   await choose(page, `${TMP}/escaneado.pdf`);
   await expect(page.getByRole("list", { name: "Avisos" })).toContainText("página 2");
   await expect(page.getByRole("list", { name: "Avisos" })).toContainText("provavelmente escaneada");
+  await page.getByRole("button", { name: "Revisar o que será removido" }).click();
   await anonymize(page);
   await expect(page.getByTestId("verificacao")).toContainText("página 2 não pôde ser verificada");
 });
@@ -73,7 +163,8 @@ test("PDF com senha: pede a senha, recusa a errada e abre com a certa", async ({
   await expect(page.getByText("Senha incorreta")).toBeVisible();
   await page.locator("#password").fill("segredo123");
   await page.getByRole("button", { name: "Abrir" }).click();
-  await expect(page.getByRole("list", { name: "Sugestões" })).toBeVisible();
+  await page.getByRole("button", { name: "Revisar o que será removido" }).click();
+  await expect(page.getByRole("img", { name: "Página 1" })).toBeVisible();
   await anonymize(page);
   await expect(page.getByTestId("verificacao")).toContainText("nenhum dos dados");
 });
@@ -83,31 +174,32 @@ test("arquivo que não é PDF mostra mensagem clara", async ({ page }) => {
   await expect(page.getByText("O arquivo escolhido não é um PDF")).toBeVisible();
 });
 
-test("processo grande: mostra progresso por página e permite cancelar", async ({ page }) => {
+test("processo grande: progresso por página e cancelar volta para a revisão", async ({ page }) => {
   await choose(page, `${TMP}/grande.pdf`);
-  await expect(page.getByRole("list", { name: "Sugestões" })).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Anonimizar" }).click();
+  await page.getByRole("button", { name: "Revisar o que será removido" }).click({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Anonimizar", exact: true }).click();
   const status = page.getByRole("status", { name: "Progresso" });
   await expect(status).toContainText(/página \d+ de \d+/);
   await status.getByRole("button", { name: "Cancelar" }).click();
   await expect(status).toBeHidden();
-  await expect(page.getByRole("button", { name: "Anonimizar" })).toBeEnabled();
-  await expect(page.getByRole("region", { name: "Resultado" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Anonimizar", exact: true })).toBeVisible();
+  await expect(page.getByTestId("verificacao")).toHaveCount(0);
 });
 
-test("restaura os nomes na resposta da IA, inclusive formas curtas e variações", async ({ page }) => {
-  await choose(page, "fixtures/peticao-ficticia.pdf");
-  await expect(page.getByRole("list", { name: "Sugestões" })).toBeVisible();
-  await anonymize(page);
-  await page.getByLabel("Resposta da IA").fill("A autora [PESSOA_1] (ou PESSOA_1) e [P1]; [PESSOA_99] não existe.");
+test("restaurar com a tabela .json carregada (sem anonimizar nesta sessão)", async ({ page }) => {
+  await page.getByRole("button", { name: /Restaurar/ }).click();
+  await page.locator("#tabela").setInputFiles({
+    name: "correspondencia.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify([{ placeholder: "[PESSOA_1]", kind: "PESSOA", originals: ["Ana Souza"], occurrences: 1 }])),
+  });
+  await page.getByLabel("Resposta da IA").fill("[PESSOA_1] e [P1] e PESSOA_1; [PESSOA_99].");
   await expect(page.getByTestId("restaurados")).toContainText("3 marcadores restaurados");
   await expect(page.getByTestId("restaurados")).toContainText("[PESSOA_99]");
-  const restored = await page.getByLabel("Texto restaurado").inputValue();
-  expect(restored).not.toContain("[PESSOA_1]");
-  expect(restored).toContain("[PESSOA_99]");
+  expect(await page.getByLabel("Texto restaurado").inputValue()).toBe("Ana Souza e Ana Souza e Ana Souza; [PESSOA_99].");
 });
 
-test("privacidade: CSP ativa e nenhuma requisição sai da origem durante todo o fluxo", async ({ page, baseURL }) => {
+test("privacidade: CSP ativa, nenhuma requisição fora da origem e nenhuma violação de CSP", async ({ page, baseURL }) => {
   const requests: string[] = [];
   const cspViolations: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
@@ -120,10 +212,12 @@ test("privacidade: CSP ativa e nenhuma requisição sai da origem durante todo o
   expect(csp).toContain("connect-src 'self'");
   expect(csp).toContain("form-action 'none'");
 
-  await choose(page, "fixtures/reclamacao-trt.pdf");
-  await expect(page.getByRole("list", { name: "Sugestões" })).toBeVisible();
+  await review(page, "fixtures/reclamacao-trt.pdf");
+  await expect(page.getByRole("img", { name: "Página 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Próxima página" }).click();
+  await expect(page.getByRole("img", { name: "Página 2" })).toBeVisible();
   await anonymize(page);
-  await downloadBytes(page, "Baixar PDF");
+  await downloadBytes(page, "Baixar PDF anonimizado");
 
   const external = requests.filter((u) => !u.startsWith(baseURL!) && !u.startsWith("blob:") && !u.startsWith("data:"));
   expect(external).toEqual([]);

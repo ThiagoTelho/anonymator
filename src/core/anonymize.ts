@@ -2,23 +2,14 @@
 // do conteúdo das páginas (MuPDF redaction) e escreve um marcador no lugar.
 
 import * as mupdf from "mupdf";
-import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts";
+import type { Kind } from "./detectors.ts";
 import { fitLabel, shortLabel } from "./labels.ts";
 import { openPdf, type OnProgress } from "./diagnose.ts";
-import { readPage, type Char } from "./text.ts";
+import { planPage, type PlanOptions } from "./plan.ts";
 
-export interface Person {
-  /** Grafias da mesma pessoa no documento (ex.: nome completo, "Sr. Almeida"). */
-  variants: string[];
-  /** PESSOA (padrão) ou EMPRESA: define o marcador ([PESSOA_n] ou [EMPRESA_n]). */
-  kind?: "PESSOA" | "EMPRESA";
-}
+export type { Person } from "./plan.ts";
 
-export interface AnonymizeOptions {
-  /** Pessoas declaradas pelo usuário. Cada uma recebe um marcador [PESSOA_n]. */
-  people: Person[];
-  /** Detectar CPF, CNPJ, e-mail, telefone, CEP, OAB e nº de processo. Padrão: true. */
-  detectPatterns?: boolean;
+export interface AnonymizeOptions extends PlanOptions {
   /** Senha de abertura, se o PDF for protegido. O PDF anonimizado sai sem senha. */
   password?: string;
   /** Chamado a cada página anonimizada (não atravessa o worker: a interface passa via mensagens). */
@@ -39,38 +30,6 @@ export interface AnonymizeResult {
   text: string;
   /** Tabela de correspondência marcador → dado original. Nunca sai da máquina do usuário. */
   replacements: Replacement[];
-}
-
-/** Agrupa os quads de um trecho por linha e devolve um retângulo por linha. */
-function lineRects(chars: Char[], start: number, end: number): mupdf.Rect[] {
-  const byLine = new Map<number, mupdf.Rect>();
-  for (let i = start; i < end; i++) {
-    const { quad, line } = chars[i];
-    if (!quad) continue;
-    const xs = [quad[0], quad[2], quad[4], quad[6]];
-    const ys = [quad[1], quad[3], quad[5], quad[7]];
-    const r: mupdf.Rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-    const prev = byLine.get(line);
-    byLine.set(line, prev ? [Math.min(prev[0], r[0]), Math.min(prev[1], r[1]), Math.max(prev[2], r[2]), Math.max(prev[3], r[3])] : r);
-  }
-  return [...byLine.values()];
-}
-
-/** Chave que identifica a mesma entidade escrita de formas diferentes. */
-function entityKey(m: Match): string {
-  const digits = m.text.replace(/\D/g, "");
-  switch (m.kind) {
-    case "CNPJ":
-      // CNPJ alfanumérico: letras fazem parte da identidade.
-      return `CNPJ:${m.text.replace(/[^0-9A-Z]/g, "")}`;
-    case "CPF":
-    case "CEP":
-    case "PROCESSO":
-    case "TELEFONE":
-      return `${m.kind}:${digits}`;
-    default:
-      return `${m.kind}:${m.text.toLowerCase().replace(/\s+/g, " ")}`;
-  }
 }
 
 /** String literal PDF para fonte simples Latin: escapa \\ ( ) e codifica acentos em octal (Latin-1). */
@@ -113,38 +72,18 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
   for (let p = 0; p < totalPages; p++) {
     if (p > 0) options.onProgress?.(p, totalPages);
     const page = doc.loadPage(p);
-    const { text, chars } = readPage(page);
-
-    // 1. Localizar: pessoas declaradas primeiro, depois os padrões, sem sobreposição.
-    const matches: { m: Match; key: string }[] = [];
-    const taken = (s: number, e: number) => matches.some(({ m }) => s < m.end && e > m.start);
-    // Variantes mais longas primeiro, entre todas as pessoas: "Maria da Silva" (pessoa 2)
-    // ganha de "Maria" (pessoa 1) no mesmo trecho.
-    const variants = options.people
-      .flatMap((person, idx) => person.variants.map((v) => ({ v, idx, kind: person.kind ?? "PESSOA" })))
-      .sort((a, b) => b.v.length - a.v.length);
-    for (const { v, idx, kind } of variants) {
-      for (const m of findTerm(text, v, kind)) {
-        if (!taken(m.start, m.end)) matches.push({ m, key: `${kind}:#${idx}` });
-      }
-    }
-    if (options.detectPatterns !== false) {
-      for (const m of detectPatterns(text)) {
-        if (!taken(m.start, m.end)) matches.push({ m, key: entityKey(m) });
-      }
-    }
-    matches.sort((a, b) => a.m.start - b.m.start);
+    // 1. Localizar (mesmo cálculo da pré-visualização).
+    const { text, matches } = planPage(page, options);
 
     // 2. Marcar as áreas para remoção e guardar onde escrever cada marcador.
     const overlays: { rect: mupdf.Rect; label?: { full: string; short: string } }[] = [];
     let out = "";
     let cursor = 0;
-    for (const { m, key } of matches) {
-      const label = placeholderFor(key, m.kind, m.text.replace(/\s+/g, " "));
+    for (const m of matches) {
+      const label = placeholderFor(m.key, m.kind, m.text.replace(/\s+/g, " "));
       out += text.slice(cursor, m.start) + label.full;
       cursor = m.end;
-      // Recuo horizontal pequeno para não atingir a pontuação colada ao dado (ex.: "35,").
-      const rects = lineRects(chars, m.start, m.end).map(([x0, y0, x1, y1]): mupdf.Rect => [x0 + 0.4, y0, x1 - 0.4, y1]);
+      const rects = m.rects;
       if (rects.length === 0) continue;
       const annot = page.createAnnotation("Redact");
       annot.setRect(rects.reduce((a, r) => [Math.min(a[0], r[0]), Math.min(a[1], r[1]), Math.max(a[2], r[2]), Math.max(a[3], r[3])]));
