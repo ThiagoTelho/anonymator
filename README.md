@@ -1,6 +1,6 @@
 # Anonimador
 
-> [anonimador.com.br](https://anonimador.com.br) (ainda não publicado) · repositório `anonymator`
+> https://thiagotelho.github.io/anonymator/ (domínio anonimador.com.br em breve) · repositório `anonymator`
 
 Aplicação web que anonimiza dados pessoais de PDFs de processos (judiciais e do Ministério Público)
 **inteiramente no navegador**, para que advogados possam usar ferramentas de IA sem enviar dados pessoais
@@ -11,7 +11,7 @@ do conteúdo da página e substituído por um marcador consistente (`[PESSOA_1]`
 gerados o texto anonimizado (`.txt`) e uma tabela de correspondência marcador → dado original, que fica
 só com o usuário — e com ela o app devolve os dados reais à resposta da IA, também localmente.
 
-> **Estado:** v0.1.0 (beta fechado) pronta para publicação; ainda não publicada. Todos os testes usam documentos fictícios.
+> **Estado:** v0.1.0 (beta fechado) publicada em https://thiagotelho.github.io/anonymator/. Todos os testes usam documentos fictícios.
 
 ## O que é removido
 
@@ -172,7 +172,8 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
 
 O site é publicado no GitHub Pages pelo workflow `.github/workflows/deploy.yml`, **só quando uma versão é marcada**
 (`git tag vX.Y.Z` + push da tag). Antes de publicar, o workflow roda lint, type-check, testes unitários e de interface.
-Endereço inicial: `https://thiagotelho.github.io/anonymator/`. Mudanças de cada versão: [CHANGELOG.md](CHANGELOG.md).
+Endereço atual: `https://thiagotelho.github.io/anonymator/`. Depois do deploy, o job `verify` roda os testes de interface
+contra o site publicado (`E2E_BASE_URL=<url> pnpm test:e2e` faz o mesmo localmente). Mudanças de cada versão: [CHANGELOG.md](CHANGELOG.md).
 Roteiro para os testadores do beta: [docs/beta.md](docs/beta.md).
 
 Configuração única: repositório → Settings → Pages → Source: **GitHub Actions**.

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0 — beta fechado (a publicar)
+## v0.1.0 — beta fechado (24/11/2026)
 
 Primeira versão de teste do **Anonimador**, para um grupo pequeno de advogados (no endereço do GitHub Pages; o domínio anonimador.com.br vem depois).
 

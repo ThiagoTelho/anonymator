@@ -29,7 +29,7 @@ async function downloadBytes(page: Page, button: string): Promise<Uint8Array> {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("./");
 });
 
 test("fluxo completo nas quatro etapas: revisão, PDF baixado sem os dados e restauração", async ({ page }) => {
@@ -248,7 +248,7 @@ test("privacidade: CSP ativa, nenhuma requisição fora da origem e nenhuma viol
   page.on("console", (m) => {
     if (m.text().includes("Content Security Policy")) cspViolations.push(m.text());
   });
-  await page.goto("/");
+  await page.goto("./");
   const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
   expect(csp).toContain("connect-src 'self'");
   expect(csp).toContain("form-action 'none'");
