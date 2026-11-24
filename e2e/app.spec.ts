@@ -259,8 +259,39 @@ test("privacidade: CSP ativa, nenhuma requisição fora da origem e nenhuma viol
   await expect(page.getByRole("img", { name: "Página 2" })).toBeVisible();
   await anonymize(page);
   await downloadBytes(page, "Baixar PDF anonimizado");
+  // Páginas do rodapé também não buscam nada fora (links externos só abrem se clicados).
+  await page.getByRole("link", { name: "Privacidade" }).click();
+  await page.getByRole("link", { name: "Sobre e termos" }).click();
 
   const external = requests.filter((u) => !u.startsWith(baseURL!) && !u.startsWith("blob:") && !u.startsWith("data:"));
   expect(external).toEqual([]);
   expect(cspViolations).toEqual([]);
+});
+
+test("rodapé: versão, privacidade, sobre e termos (com créditos) e link para o código-fonte", async ({ page }) => {
+  const footer = page.getByRole("navigation", { name: "Rodapé" });
+  await expect(footer).toContainText("Anonimador v0.1.0 (beta)");
+  await expect(footer.getByRole("link", { name: "Código-fonte (AGPL-3.0)" })).toHaveAttribute("href", "https://github.com/ThiagoTelho/anonymator");
+
+  await footer.getByRole("link", { name: "Privacidade" }).click();
+  await expect(page.getByRole("heading", { name: "Como o Anonimador protege seus documentos" })).toBeVisible();
+  // Fora do fluxo, nenhuma etapa aparece como atual.
+  await expect(page.locator('nav[aria-label="Etapas"] [aria-current="step"]')).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Privacidade" })).toContainText("pseudonimização");
+
+  await footer.getByRole("link", { name: "Sobre e termos" }).click();
+  const about = page.getByRole("region", { name: "Sobre e termos" });
+  await expect(about).toContainText("sem garantia");
+  await expect(about).toContainText("IBGE — Censo 2010");
+  await expect(about).toContainText("MuPDF");
+});
+
+test("abrir uma página do rodapé no meio da revisão não perde o trabalho", async ({ page }) => {
+  await review(page, "fixtures/peticao-ficticia.pdf");
+  await page.getByRole("checkbox", { name: "Carlos Eduardo Ferreira" }).uncheck();
+  await page.getByRole("navigation", { name: "Rodapé" }).getByRole("link", { name: "Sobre e termos" }).click();
+  await expect(page.getByRole("region", { name: "Sobre e termos" })).toBeVisible();
+  await page.getByRole("button", { name: /Revisão/ }).click();
+  await expect(page.getByRole("checkbox", { name: "Carlos Eduardo Ferreira" })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "João Pedro Almeida" })).toBeChecked();
 });

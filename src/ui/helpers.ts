@@ -26,3 +26,14 @@ export function download(data: BlobPart, name: string, type: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Repositório público (exigência da AGPL: oferecer o código-fonte a quem usa o app pela rede). */
+export const SOURCE_URL = "https://github.com/ThiagoTelho/anonymator";
+
+/** Canal de sugestões do beta. Vazio = aponta para as issues do GitHub. */
+export const FEEDBACK_CONTACT: { label: string; href: string } | null = null;
+
+export type View = "app" | "privacidade" | "sobre";
+
+/** Página atual, pelo endereço (#privacidade, #sobre). */
+export const viewFromHash = (hash: string): View => (hash === "#privacidade" ? "privacidade" : hash === "#sobre" ? "sobre" : "app");

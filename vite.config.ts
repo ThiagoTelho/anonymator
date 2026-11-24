@@ -1,4 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -26,7 +27,11 @@ const csp = (): Plugin => ({
     html.replace("<meta charset=\"UTF-8\" />", `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />`),
 });
 
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+
 export default defineConfig({
+  // Versão exibida no rodapé (vem do package.json).
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // Caminhos relativos: funciona tanto em usuario.github.io/anonymator quanto em domínio próprio.
   base: "./",
   plugins: [react(), tailwindcss(), csp()],

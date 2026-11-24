@@ -4,7 +4,8 @@ import type { Warning } from "../core/diagnose.ts";
 import type { Phase, WorkerProgress } from "../worker.ts";
 import { buttonSecondary, pagesText, SEVERE, STEPS, type Step } from "./helpers.ts";
 
-export function Header({ step, available, onStep }: { step: Step; available: Set<Step>; onStep: (s: Step) => void }) {
+/** `step` nulo: fora do fluxo (páginas do rodapé), nenhuma etapa aparece como atual. */
+export function Header({ step, available, onStep }: { step: Step | null; available: Set<Step>; onStep: (s: Step) => void }) {
   return (
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">

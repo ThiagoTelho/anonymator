@@ -38,8 +38,11 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 - Código e comentários em português; nomes de identificadores em inglês.
 - `ROADMAP.md` está no `.gitignore`: atualize-o ao concluir etapas, mas nunca o commite.
 - MuPDF é AGPL; o projeto inteiro é AGPL-3.0-or-later.
-- O GitHub Pages só será publicado quando o projeto estiver mais avançado (beta fechado, Sprint 3 do
-  `ROADMAP.md`); não configure deploy sem pedido.
+- Publicação: só por tag `vX.Y.Z` (workflow `deploy.yml`). **Criar e enviar tag, ativar o Pages ou mudar DNS/domínio
+  exige pedido explícito do autor** a cada vez. Ao preparar uma versão: atualizar `version` no `package.json` e o
+  `CHANGELOG.md`.
+- Textos legais e de privacidade ficam em `src/ui/Pages.tsx`; se o app passar a fazer algo novo com dados, atualize-os
+  no mesmo commit.
 
 ## Comandos
 

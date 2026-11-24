@@ -11,7 +11,7 @@ do conteúdo da página e substituído por um marcador consistente (`[PESSOA_1]`
 gerados o texto anonimizado (`.txt`) e uma tabela de correspondência marcador → dado original, que fica
 só com o usuário — e com ela o app devolve os dados reais à resposta da IA, também localmente.
 
-> **Estado:** pré-lançamento. Ainda não há versão publicada. Todos os testes usam documentos fictícios.
+> **Estado:** v0.1.0 (beta fechado) pronta para publicação; ainda não publicada. Todos os testes usam documentos fictícios.
 
 ## O que é removido
 
@@ -168,6 +168,24 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
   Dados indiretos (datas, profissão, local de trabalho, fatos muito específicos) também podem identificar alguém.
   E, com a tabela de correspondência guardada, o resultado é **pseudonimização** (ainda dado pessoal na LGPD).
 
+## Publicação
+
+O site é publicado no GitHub Pages pelo workflow `.github/workflows/deploy.yml`, **só quando uma versão é marcada**
+(`git tag vX.Y.Z` + push da tag). Antes de publicar, o workflow roda lint, type-check, testes unitários e de interface.
+Endereço inicial: `https://thiagotelho.github.io/anonymator/`. Mudanças de cada versão: [CHANGELOG.md](CHANGELOG.md).
+Roteiro para os testadores do beta: [docs/beta.md](docs/beta.md).
+
+Configuração única: repositório → Settings → Pages → Source: **GitHub Actions**.
+
+Domínio próprio (`anonimador.com.br`, para depois — nesta ordem):
+1. DNS do domínio: registros `A` do apex para `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+   (e `AAAA` `2606:50c0:8000::153` a `2606:50c0:8003::153`); `www` como `CNAME` para `thiagotelho.github.io`.
+2. Verificar o domínio na conta do GitHub (Settings → Pages → Add a verified domain).
+3. Só então criar `public/CNAME` com `anonimador.com.br` e publicar uma nova versão; depois do certificado, marcar
+   **Enforce HTTPS**. (Com o CNAME antes do DNS, o endereço do GitHub redirecionaria para um domínio que ainda não responde.)
+
 ## Licença
 
-[AGPL-3.0-or-later](LICENSE), a mesma do MuPDF, do qual este projeto depende.
+Código: [AGPL-3.0-or-later](LICENSE), a mesma do MuPDF, do qual este projeto depende. A lista de primeiros nomes
+(`src/data/first-names.txt`) é dado à parte, sob Creative Commons Atribuição-CompartilhaIgual (IBGE — Censo 2010,
+tratamento de Álvaro Justen / Brasil.IO); veja `src/data/README.md`.
