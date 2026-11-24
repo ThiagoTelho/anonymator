@@ -220,3 +220,14 @@ describe("suggestEntities — empresas (formas variadas)", () => {
     expect(s.variants).toContain("LOGIMAX");
   });
 });
+
+describe("suggestEntities — variações de layout (processos do MPT)", () => {
+  it("estados por extenso não são pessoas, nem com a linha seguinte colada", () => {
+    expect(names("Superintendência Regional do Trabalho em Minas Gerais; Rio Grande do Sul")).toEqual([]);
+    expect(names("PROCURADORIA REGIONAL DO TRABALHO DA 3ª REGIÃO – MINAS GERAIS\nIC 001234.2024.03.000/5")).toEqual([]);
+  });
+
+  it("rótulo de campo na mesma linha não entra no nome da empresa", () => {
+    expect(suggest("Estabelecimento Olaria Vale do Sereno Ltda. – EPP – CNPJ")[0].name).toBe("Olaria Vale do Sereno Ltda.");
+  });
+});

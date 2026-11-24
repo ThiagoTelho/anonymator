@@ -46,6 +46,7 @@ const STOP = new Set(
   rito ordinario sumario sumarissimo recurso acao agravo apelacao embargos mandado habeas peticao inicial reclamacao
   trabalhista denuncia sentenca decisao acordao manifestacao contestacao replica audiencia provas pedidos pedido fatos
   direito preliminar merito conclusao requerimentos causa horas extras verbas rescisorias honorarios dano danos moral morais
+  estabelecimento razao social denominacao investigada denunciada reclamada executada
   contratante contratantes contratada contratado outorgante outorgado outorgada substabelecente substabelecido`
     .split(/\s+/)
     .filter(Boolean),
@@ -195,8 +196,15 @@ function tokenizeAll(text: string): Token[] {
 }
 
 /** Nomes de cidade citados com UF no documento ("Bela Vista de Goiás/GO", "São Paulo – SP"). */
+/** Estados por extenso (com conectivos removidos), tratados como lugar mesmo sem "/UF". */
+const STATE_NAMES = [
+  "minas gerais", "rio grande sul", "rio grande norte", "rio janeiro", "mato grosso", "mato grosso sul", "espirito santo",
+  "santa catarina", "sao paulo", "distrito federal", "goias", "bahia", "parana", "pernambuco", "ceara", "maranhao",
+  "paraiba", "piaui", "alagoas", "sergipe", "tocantins", "rondonia", "roraima", "amapa", "amazonas", "acre", "para",
+];
+
 function citiesIn(text: string): Set<string> {
-  const cities = new Set<string>();
+  const cities = new Set<string>(STATE_NAMES);
   const re = /(\p{Lu}[\p{L}'’-]+(?:[ \t]+(?:d[aeo]s?|de|\p{Lu}[\p{L}'’-]+)){0,4})[ \t]*(?:\/|[-–][ \t]*)[A-Z]{2}(?![\p{L}])/gu;
   for (const m of text.matchAll(re)) {
     const words = fold(m[1]).split(/\s+/).filter((w) => !CONNECTORS.has(w));
@@ -224,7 +232,9 @@ function personCandidates(text: string, tokens: Token[], firstNames: Set<string>
     // Ponto final de frase não faz parte do nome ("… Diego Henrique Medeiros."), só o de inicial ("Rosimeire C.").
     const end = lastToken.dotted && lastToken.kind !== "initial" ? lastToken.end - 1 : lastToken.end;
     if (CITY_UF_AFTER.test(text.slice(end, end + 8))) continue;
-    if (cities.has(words(span).join(" "))) continue;
+    // Cidade ou estado, inteiro ou no começo ("MINAS GERAIS" + "IC" da linha seguinte).
+    const key = words(span).join(" ");
+    if (cities.has(key) || [...cities].some((c) => c.includes(" ") && key.startsWith(c + " "))) continue;
     out.push({ kind: "PESSOA", text: text.slice(span[0].start, end), start: span[0].start, end, key: words(span) });
   }
   return out;

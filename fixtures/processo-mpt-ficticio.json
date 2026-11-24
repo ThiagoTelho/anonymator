@@ -82,7 +82,8 @@
     "Qd. 21, Lt. 9",
     "Zona Rural",
     "PRT18.850180/2025",
-    "OS 51371842/2025"
+    "OS 51371842/2025",
+    "22904619-1"
   ],
   "mustKeep": [
     "MINISTÉRIO PÚBLICO DO TRABALHO",
@@ -98,7 +99,5 @@
     "Operador de maromba",
     "Nerópolis/GO"
   ],
-  "knownGaps": [
-    "22904619-1"
-  ]
+  "knownGaps": []
 }

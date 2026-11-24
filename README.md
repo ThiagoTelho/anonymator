@@ -55,6 +55,8 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `fixtures/src/` | Fontes HTML das fixtures e, quando houver, o gabarito independente (`*.truth.json`) |
 | `scripts/make-fixture.mjs` | Gera os PDFs de `fixtures/` a partir de `fixtures/src/*.html` |
 | `scripts/truth-to-spec.py` | Converte um gabarito independente no `.json` da fixture |
+| `fixtures/layouts-mpt/` | **Só local (no `.gitignore`)**: 50 processos fictícios do MPT com layouts diferentes e gabarito estruturado |
+| `scripts/eval-dataset.ts` | Relatório de remoção por categoria num conjunto com gabarito (`node scripts/eval-dataset.ts fixtures/layouts-mpt --misses`) |
 | `scripts/preview-fixture.ts` | Anonimiza uma fixture como o usuário faria e grava PDF, texto e imagem em `out/` |
 | `scripts/verify.ts` | Anonimiza uma fixture e grava a saída em `out/` para inspeção manual |
 
@@ -100,6 +102,11 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
   `procuracao-contrato`) foi escrita, com gabarito, por quem não conhecia as regras do detector, para que o teste
   não seja moldado pela implementação. O gabarito fica em `fixtures/src/<nome>.truth.json` e vira o `.json`
   da fixture com `scripts/truth-to-spec.py`; o teste também rejeita sugestões fora do gabarito (falsos positivos).
+- **Variação de layout** (`tests/dataset.test.ts`, conjunto só local, pulado sem a pasta): 50 processos fictícios do MPT gerados com fontes, papel,
+  corpo, entrelinha, alinhamento, margens, cabeçalhos, numeração, tabelas, campos (colunas/tabela/texto),
+  formatos de data e moeda, máscara de documentos e marca d'água variados. Para cada um, confere pelo gabarito
+  que nenhum dado pessoal sobra, que nada não pessoal (portaria, TAC, vara, datas comuns, valores) é apagado,
+  que não há sugestões fora do gabarito e que só agentes públicos vêm desmarcados.
 - **Interface**: testes end-to-end (Playwright, contra o build com CSP) entram junto com a tela de revisão.
 
 **Nunca use processos reais em testes ou fixtures do repositório.** Só documentos fictícios, com dados inventados.

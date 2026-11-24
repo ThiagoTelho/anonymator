@@ -312,3 +312,26 @@ describe("detectAddresses — formatos variados", () => {
     ]);
   });
 });
+
+describe("detectPatterns — variações de layout (processos do MPT)", () => {
+  it("PIS sem máscara em coluna de tabela, sem confundir com celular", () => {
+    expect(kinds("Operador 12221974656 31/05/2018")).toEqual([["PIS", "12221974656"]]);
+    expect(kinds("número 62996017755")).toEqual([["TELEFONE", "62996017755"]]);
+  });
+
+  it("data de nascimento com pontos ou hífens", () => {
+    expect(kinds("Data de nascimento 03.08.1990")).toEqual([["NASCIMENTO", "03.08.1990"]]);
+    expect(kinds("nascido em 03-08-1990")).toEqual([["NASCIMENTO", "03-08-1990"]]);
+  });
+
+  it("código de verificação só de letras, com rótulo e em maiúsculas", () => {
+    expect(kinds("Código de verificação: QWERTZUI\n(fictício)")).toEqual([["CODIGO", "QWERTZUI"]]);
+    expect(kinds("Código de\nverificação: ASDFGHJK (fictício)")).toEqual([["CODIGO", "ASDFGHJK"]]);
+    expect(kinds("código de verificação: consulte o site")).toEqual([]);
+  });
+
+  it("número de auto de infração (8 dígitos + dígito), mesmo sem rótulo", () => {
+    expect(kinds("22904619-1\nDeixar de consignar")).toEqual([["PROTOCOLO", "22904619-1"]]);
+    expect(kinds("CNAE 2342-7/02; R$ 16.840,66")).toEqual([]);
+  });
+});

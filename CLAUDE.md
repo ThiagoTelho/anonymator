@@ -12,6 +12,10 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 - **Correção de bug**: primeiro um teste que reproduz o bug e falha; depois a correção.
 - **Novo tipo de documento** (ex.: layout de outro tribunal ou órgão): adicione uma fixture fictícia
   em `fixtures/` com o `.json` ao lado (veja o cabeçalho de `tests/fixtures.test.ts`).
+- **Conjuntos com gabarito estruturado** (ex.: `fixtures/layouts-mpt/`, que fica **só na máquina local**: está no
+  `.gitignore` e nunca deve ir para o remoto, nem valores copiados dele para testes commitados): `node scripts/eval-dataset.ts <pasta> --misses`
+  mostra a remoção por categoria e cada vazamento com contexto; `tests/dataset.test.ts` exige 100% e zero
+  apagamento em excesso. Novos conjuntos de outros órgãos devem seguir o mesmo caminho.
 - **Interface**: quando a UI começar a crescer (tela de revisão, Fase 3), configure testes end-to-end com
   Playwright contra o build de produção (com a CSP ativa) e teste os fluxos principais. Componentes com
   lógica própria ganham testes com Testing Library.

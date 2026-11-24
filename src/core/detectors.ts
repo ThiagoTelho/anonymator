@@ -100,7 +100,7 @@ const RULES: Rule[] = [
   { kind: "CTPS", pattern: rx(String.raw`(?<=\bCTPS${LABEL_SEP})\d{4,8}(?:,?\s*s[ée]rie\s*\d{3,5}(?:-[A-Z]{2})?)?`, "giu") },
   {
     kind: "NASCIMENTO",
-    pattern: rx(String.raw`(?<=\b(?:data\s+de\s+nascimento|nascid[oa]\s+em|nasc\.)${LABEL_SEP})\d{1,2}\/\d{1,2}\/\d{2,4}`, "giu"),
+    pattern: rx(String.raw`(?<=\b(?:data\s+de\s+nascimento|nascid[oa]\s+em|nasc\.)${LABEL_SEP})\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}`, "giu"),
   },
   // Documentos de identificação com rótulo.
   {
@@ -132,6 +132,14 @@ const RULES: Rule[] = [
       "giu",
     ),
   },
+  // Com rótulo explícito, aceita código só de letras (HSYKKVSM) — em maiúsculas, para não pegar palavra comum.
+  {
+    kind: "CODIGO",
+    pattern: rx(
+      String.raw`(?<=\b[Cc][óÓoO][Dd][Ii][Gg][Oo]\s+(?:[Dd][Ee]\s+)?(?:[Vv]erifica[çc][ãa]o|[Aa]utenticidade|[Aa]utentica[çc][ãa]o|[Vv]alida[çc][ãa]o|[Cc]onfer[êe]ncia|[Aa]cesso)${LABEL_SEP})[A-Z0-9]{6,}(?:-\s*[A-Z0-9]{3,})*(?![A-Za-z0-9])`,
+      "gu",
+    ),
+  },
   // Rodapé do PJe: "Juntado em: 24/11/2026 09:15:38 - 3f8a21c".
   { kind: "CODIGO", pattern: /(?<=Juntado em:\s*\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}(?::\d{2})?\s*-\s*)[0-9a-f]{6,}\b/gi },
   // Números de protocolo, atendimento, inquérito policial, boletim de ocorrência, ordem de serviço…
@@ -149,6 +157,8 @@ const RULES: Rule[] = [
   { kind: "RASTREIO", pattern: /\b[A-Z]{2}\d{9}BR\b/g },
   { kind: "CNPJ", pattern: /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, validate: isValidCnpj },
   { kind: "CPF", pattern: /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, validate: isValidCpf },
+  // Número de auto de infração do MTE (8 dígitos + dígito): formato próprio, mesmo sem rótulo na tabela.
+  { kind: "PROTOCOLO", pattern: /(?<![\d./-])\d{8}-\d(?![\d-])/g },
   { kind: "EMAIL", pattern: /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g },
   { kind: "OAB", pattern: /\bOAB\s*\/?\s*[A-Z]{2}\s*(?:sob\s+o\s+)?(?:n[º°o.]\s*)?\d{1,3}(?:\.?\d{3})*(?:-?[A-Z])?\b/g },
   { kind: "CEP", pattern: /\b\d{5}-\d{3}\b/g },
@@ -156,6 +166,9 @@ const RULES: Rule[] = [
   // e celular só com dígitos (62996017755) — este depois do CPF, que tem dígito verificador.
   { kind: "TELEFONE", pattern: /(?:\+55\s*)?(?:\(\d{2}\)\s*|\b\d{2}[ \t]+)9?\d{4}[-\s]?\d{4}\b/g },
   { kind: "TELEFONE", pattern: /(?:\+55\s*)?\b[1-9]{2}9\d{8}\b/g },
+  // PIS sem máscara e sem rótulo (coluna de tabela): 11 dígitos com dígito verificador de PIS. Vem depois de CPF
+  // e do celular só com dígitos: um número que por acaso valide os dois fica com o formato mais provável.
+  { kind: "PIS", pattern: /\b\d{11}\b/g, validate: isValidPis },
   // Iniciais de partes em segredo de justiça (R.A.M., K.S.L.A.); "S.A." (2 letras) fica de fora.
   { kind: "INICIAIS", pattern: /(?<![\p{L}.])(?:\p{Lu}\.){3,6}(?!\p{L})/gu },
   // Escola de criança ou adolescente identifica a família.

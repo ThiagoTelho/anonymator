@@ -28,3 +28,6 @@ out/
 
 # Roadmap de implementação: documento interno, fora do repositório
 ROADMAP.md
+
+# Conjunto de processos fictícios do autor: fica só na máquina local, nunca no remoto
+fixtures/layouts-mpt/
