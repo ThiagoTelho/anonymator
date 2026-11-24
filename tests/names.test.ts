@@ -140,6 +140,83 @@ describe("suggestEntities — casos de petição (PJe)", () => {
   it("junta o nome partido no fim da linha com o nome completo citado em outro ponto", () => {
     const all = suggest("e de JOÃO\nPEDRO ALMEIDA, CPF 111. Depois, João Pedro Almeida assinou e o Sr. Almeida sumiu.");
     expect(all).toHaveLength(1);
-    expect(all[0].variants).toEqual(expect.arrayContaining(["João Pedro Almeida", "PEDRO ALMEIDA", "Sr. Almeida"]));
+    // O nome partido entre linhas é reconstruído inteiro ("JOÃO PEDRO ALMEIDA").
+    expect(all[0].variants).toEqual(expect.arrayContaining(["João Pedro Almeida", "JOÃO PEDRO ALMEIDA", "Sr. Almeida"]));
+  });
+});
+
+describe("suggestEntities — lugares não são pessoas", () => {
+  it("ignora São/Santo/Santa e cidades citadas com UF", () => {
+    expect(names("VARA DO TRABALHO DE SÃO PAULO – SP; FORO REGIONAL II – SANTO AMARO; Jardim Santa Terezinha")).toEqual([]);
+    expect(names("residente em Bela Vista de Goiás/GO. Promotoria de Justiça de Bela Vista de Goiás")).toEqual([]);
+  });
+
+  it("ignora logradouros com título ou cargo no nome", () => {
+    expect(names("Rua Ministro Jesuíno Cardoso, nº 1.870; Avenida Engenheiro Armando de Arruda Pereira; Rua Doutor Bacelar, 10")).toEqual([]);
+  });
+
+  it("ignora cabeçalhos jurídicos em CAIXA ALTA", () => {
+    expect(names("(RITO ORDINÁRIO)\n\nDAS HORAS EXTRAS\n\nDAS VERBAS RESCISÓRIAS")).toEqual([]);
+  });
+
+  it("não usa estado como primeiro nome, mas aceita como sobrenome", () => {
+    expect(names("REGIÃO – GOIÁS\nIC 001873")).toEqual([]);
+    expect(names("Dra. Hortênsia Maranhão Quintela")).toEqual(["Hortênsia Maranhão Quintela"]);
+  });
+});
+
+describe("suggestEntities — nomes partidos e abreviados", () => {
+  it("separa pai e mãe na filiação ('… e de …')", () => {
+    expect(names("filho de Lucinéia Rodrigues da Cunha e de Valdomiro Pereira da Cunha, portador")).toEqual([
+      "Lucinéia Rodrigues da Cunha",
+      "Valdomiro Pereira da Cunha",
+    ]);
+  });
+
+  it("junta nome em CAIXA ALTA partido em várias linhas de célula", () => {
+    expect(names("1\nROSIMEIRE\nDUTRA\nFALCÃO\n\nRG")).toEqual(["ROSIMEIRE DUTRA FALCÃO"]);
+  });
+
+  it("não inclui o ponto final da frase no nome", () => {
+    expect(suggest("Requerido: Diego Henrique Medeiros.")[0].variants).toEqual(["Diego Henrique Medeiros"]);
+  });
+
+  it("agrupa primeiro + último nome com o nome completo, e liga 'Sr. Primeiro-nome'", () => {
+    const [s] = suggest("encarregado Sr. Anselmo Teodoro Paiva. Depois, Anselmo Paiva confirmou; o Sr. Anselmo saiu.");
+    expect(s.variants).toEqual(expect.arrayContaining(["Anselmo Teodoro Paiva", "Anselmo Paiva", "Anselmo"]));
+  });
+
+  it("liga o apelido ('vulgo') à pessoa e às menções só pelo apelido", () => {
+    const [s] = suggest("WEVERTON RODRIGUES DA CUNHA, vulgo “Mosquito”, brasileiro. Depois, “Mosquito” fugiu.");
+    expect(s.variants).toContain("Mosquito");
+    expect(s.occurrences).toBe(3);
+  });
+
+  it("não marca como agente público só por citar matrícula", () => {
+    expect(suggest("pelo SD PM GLEIDSON ARAÚJO TELES, matrícula nº 34.781")[0].publicAgent).toBe(false);
+  });
+});
+
+describe("suggestEntities — empresas (formas variadas)", () => {
+  const companies = (text: string) => suggest(text).filter((s) => s.kind === "EMPRESA").map((s) => s.name);
+
+  it("reconhece S.A., '&', 'em' e 'Advogados Associados'", () => {
+    expect(companies("em face de LOGIMAX SERVIÇOS DE APOIO ADMINISTRATIVO S.A., inscrita")).toEqual(["LOGIMAX SERVIÇOS DE APOIO ADMINISTRATIVO S.A."]);
+    expect(companies("empregadora Vetoria Soluções em Engenharia Elétrica Ltda. para")).toEqual(["Vetoria Soluções em Engenharia Elétrica Ltda."]);
+    expect(companies("a sociedade ROSA & SANTOS ADVOGADOS ASSOCIADOS, inscrita")).toEqual(["ROSA & SANTOS ADVOGADOS ASSOCIADOS"]);
+  });
+
+  it("junta razão social em CAIXA ALTA partida em linhas, mas não o rótulo de tabela", () => {
+    expect(companies("e\n\nTORREFAÇÃO\nBELLACRUZ\nCOMÉRCIO DE CAFÉS LTDA., pessoa")).toEqual(["TORREFAÇÃO BELLACRUZ COMÉRCIO DE CAFÉS LTDA."]);
+    expect(companies("Estabelecimento\nCerâmica Pedra Lilás Ltda. – CNPJ")).toEqual(["Cerâmica Pedra Lilás Ltda."]);
+  });
+
+  it("ignora bancos e a OAB", () => {
+    expect(companies("Banco do Brasil S.A., agência 1; Ordem dos Advogados do Brasil")).toEqual([]);
+  });
+
+  it("liga o nome curto da empresa ('a LOGIMAX')", () => {
+    const [s] = suggest("LOGIMAX SERVIÇOS DE APOIO ADMINISTRATIVO S.A. contratou. A LOGIMAX não pagou.");
+    expect(s.variants).toContain("LOGIMAX");
   });
 });

@@ -128,7 +128,7 @@ describe("detectPatterns — documentos do MPT e trabalhistas", () => {
   });
 
   it("não marca números de normas, portarias e valores", () => {
-    expect(kinds("Portaria nº 412/2025, NR-12, Lei nº 7.347/1985, R$ 16.840,66, OS 51371842/2025")).toEqual([]);
+    expect(kinds("Portaria nº 412/2025, NR-12, Lei nº 7.347/1985, R$ 16.840,66, art. 157, § 2º")).toEqual([]);
   });
 });
 
@@ -200,5 +200,115 @@ describe("findTerm — pronome de tratamento + sobrenome", () => {
 
   it("não trata como pronome quando o termo não começa por um", () => {
     expect(hits("Maria Almeida", "Maria Almeida")).toEqual(["Maria Almeida"]);
+  });
+});
+
+describe("detectPatterns — documentos pessoais e bancários", () => {
+  it("RG com rótulo (vários formatos) e RG de SP sem rótulo", () => {
+    expect(kinds("RG nº 5.884.213 DGPC/GO")).toEqual([["RG", "5.884.213"]]);
+    expect(kinds("RG\n29.774.130-\nX SSP/SP")).toEqual([["RG", "29.774.130-\nX"]]);
+    expect(kinds("portadora da cédula 27.418.093-6 SSP/SP")).toEqual([["RG", "27.418.093-6"]]);
+  });
+
+  it("CNH, RENAVAM, título de eleitor, zona e seção", () => {
+    expect(kinds("CNH nº 05827364190, RENAVAM 01284736590")).toEqual([
+      ["CNH", "05827364190"],
+      ["RENAVAM", "01284736590"],
+    ]);
+    expect(kinds("título de eleitor nº 3184 2207 0159, zona 118, seção 0342")).toEqual([
+      ["ELEITOR", "3184 2207 0159"],
+      ["ELEITOR", "118"],
+      ["ELEITOR", "0342"],
+    ]);
+  });
+
+  it("placas antiga e Mercosul, só com o rótulo", () => {
+    expect(kinds("placa NKE-4419 e placa QTR2F47; norma ISO-9001")).toEqual([
+      ["PLACA", "NKE-4419"],
+      ["PLACA", "QTR2F47"],
+    ]);
+  });
+
+  it("agência, conta e chave PIX aleatória", () => {
+    expect(kinds("agência 3127-4, conta\npoupança nº 41.886-0")).toEqual([
+      ["CONTA", "3127-4"],
+      ["CONTA", "41.886-0"],
+    ]);
+    expect(kinds("chave PIX 7d3f1c2a-9b4e-4f6a-8c1d-2e5b7a9c0f13")).toEqual([["PIX", "7d3f1c2a-9b4e-4f6a-8c1d-2e5b7a9c0f13"]]);
+  });
+
+  it("OAB com 'sob o nº' e registro de sociedade de advogados", () => {
+    expect(kinds("inscrita na OAB/SP sob o nº 451.268")).toEqual([["OAB", "OAB/SP sob o nº 451.268"]]);
+    expect(kinds("registrada na Ordem dos Advogados do Brasil, Seção de São Paulo, sob o nº 31.874, com sede")).toEqual([["REGISTRO", "31.874"]]);
+  });
+
+  it("CTPS com vírgula antes da série", () => {
+    expect(kinds("CTPS nº 4417382, série\n0021-SP")).toEqual([["CTPS", "4417382, série\n0021-SP"]]);
+  });
+
+  it("telefones em vários formatos", () => {
+    expect(kinds("+55 62 99812-4471")).toEqual([["TELEFONE", "+55 62 99812-4471"]]);
+    expect(kinds("· (11)\n3214-7790")).toEqual([["TELEFONE", "(11)\n3214-7790"]]);
+    expect(kinds("número 62996017755")).toEqual([["TELEFONE", "62996017755"]]);
+  });
+
+  it("iniciais de partes em segredo de justiça, sem pegar 'S.A.'", () => {
+    expect(kinds("R.A.M. e M.A.M., representados por K.S.L.A.; Banco S.A.")).toEqual([
+      ["INICIAIS", "R.A.M."],
+      ["INICIAIS", "M.A.M."],
+      ["INICIAIS", "K.S.L.A."],
+    ]);
+  });
+
+  it("escola", () => {
+    expect(kinds("cursa o 5º ano no Colégio Ciranda do Saber, instituição particular")).toEqual([["ESCOLA", "Colégio Ciranda do Saber"]]);
+  });
+});
+
+describe("detectPatterns — códigos e protocolos de sistemas", () => {
+  it("códigos de verificação/autenticação/validação, inclusive partidos em linhas", () => {
+    expect(kinds("informe o processo e código 2B71C4E. —")).toEqual([["CODIGO", "2B71C4E"]]);
+    expect(kinds("Código de\nautenticação: 8D41-77QA-K2M9. —")).toEqual([["CODIGO", "8D41-77QA-K2M9"]]);
+    expect(kinds("código de validação 4B7E-91C2-\nAF03-6D58 e")).toEqual([["CODIGO", "4B7E-91C2-\nAF03-6D58"]]);
+    expect(kinds("nos termos do Código Civil e do código 1234")).toEqual([]);
+  });
+
+  it("hash do rodapé do PJe", () => {
+    expect(kinds("Juntado em: 24/11/2026 09:15:38 - 3f8a21c Número")).toEqual([["CODIGO", "3f8a21c"]]);
+  });
+
+  it("protocolo, atendimento, inquérito policial, RAI, BO, ordem de serviço, número do documento", () => {
+    expect(kinds("Protocolo PRT18.850180/2025")).toEqual([["PROTOCOLO", "PRT18.850180/2025"]]);
+    expect(kinds("Inquérito Policial nº:\n0871/2026 – DP")).toEqual([["PROTOCOLO", "0871/2026"]]);
+    expect(kinds("RAI nº: 38291746")).toEqual([["PROTOCOLO", "38291746"]]);
+    expect(kinds("Boletim de Ocorrência nº:\n2026/118374-PMGO")).toEqual([["PROTOCOLO", "2026/118374-PMGO"]]);
+    expect(kinds("OS 51371842/2025")).toEqual([["PROTOCOLO", "51371842/2025"]]);
+    expect(kinds("sob o número\nWSTA26701984236.")).toEqual([["PROTOCOLO", "WSTA26701984236"]]);
+  });
+
+  it("identificador longo em URL de validação, mesmo com a URL partida", () => {
+    expect(kinds("https://pje.trt2.jus.br/pjekz/\nvalidacao/26112409153827400000387715204?instancia=1")).toEqual([
+      ["PROTOCOLO", "26112409153827400000387715204"],
+    ]);
+  });
+});
+
+describe("detectAddresses — formatos variados", () => {
+  const addr = (text: string) => detectAddresses(text).map((m) => m.text.replace(/\s+/g, " "));
+
+  it("edifício com nome, bloco e apartamento", () => {
+    expect(addr("residente na Avenida T-63, nº\n1.480, Edifício Solar das Acácias, Bloco B,\nApto 1204, Setor Bueno, Goiânia/GO")).toEqual([
+      "Avenida T-63, nº 1.480, Edifício Solar das Acácias, Bloco B, Apto 1204, Setor Bueno",
+    ]);
+  });
+
+  it("endereço em célula estreita, uma palavra por linha", () => {
+    expect(addr("Rua\nTenente\nOtávio\nGomes, nº\n88, casa 2,\nAclimação,\nSão Paulo/SP")).toEqual(["Rua Tenente Otávio Gomes, nº 88, casa 2, Aclimação"]);
+  });
+
+  it("galpão como complemento", () => {
+    expect(addr("Avenida\nEngenheiro Armando de Arruda Pereira, nº\n3.310, Galpão 7, Jabaquara, São Paulo/SP")).toEqual([
+      "Avenida Engenheiro Armando de Arruda Pereira, nº 3.310, Galpão 7, Jabaquara",
+    ]);
   });
 });

@@ -42,7 +42,11 @@ const STOP = new Set(
   lei rua geral nada ata saude amparo gerado gerada termo documento processo inquerito oficio portaria despacho clausula anexo artigo art
   capitulo secao paragrafo inciso alinea ministerio publico tribunal justica vara comarca regiao superintendencia estado uniao federal
   municipio prefeitura codigo civil penal trabalho consolidacao constituicao empresa total nome cpf cnpj data valor funcao
-  assunto certidao certifico notifico informo atenciosamente goiania brasil`
+  assunto certidao certifico notifico informo atenciosamente goiania brasil
+  rito ordinario sumario sumarissimo recurso acao agravo apelacao embargos mandado habeas peticao inicial reclamacao
+  trabalhista denuncia sentenca decisao acordao manifestacao contestacao replica audiencia provas pedidos pedido fatos
+  direito preliminar merito conclusao requerimentos causa horas extras verbas rescisorias honorarios dano danos moral morais
+  contratante contratantes contratada contratado outorgante outorgado outorgada substabelecente substabelecido`
     .split(/\s+/)
     .filter(Boolean),
 );
@@ -55,10 +59,28 @@ const PLACE_BEFORE = new Set(
     .filter(Boolean),
 );
 
-const COMPANY_SUFFIX = /^(ltda|eireli|me|epp|s\/a|s\.a|sa|cia)\.?$/;
+/** Títulos e cargos que aparecem em nomes de logradouro entre o tipo e o nome ("Rua Ministro Jesuíno Cardoso"). */
+const STREET_HONORIFICS = new Set(
+  `ministro ministra professor professora prof engenheiro eng doutor doutora dr dra tenente ten coronel cel general gen
+  marechal almirante capitao cap major sargento comendador desembargador senador deputado governador prefeito vereador
+  presidente padre dom frei monsenhor santa santo sao nossa senhora irma irmao`
+    .split(/\s+/)
+    .filter(Boolean),
+);
+
+/** Não servem de primeiro nome: "São Paulo", "Santo Amaro", "GOIÁS" (cabeçalho) são lugares. Podem aparecer no meio do nome. */
+const NOT_ANCHOR = new Set(
+  `sao santo santa
+  acre alagoas amapa amazonas bahia ceara goias maranhao para paraiba parana pernambuco piaui rondonia roraima sergipe tocantins`
+    .split(/\s+/)
+    .filter(Boolean),
+);
+
+/** Segue a sequência: "/GO", " – SP", "-SP" indicam cidade/UF, não pessoa ("Bela Vista de Goiás/GO"). */
+const CITY_UF_AFTER = /^\s*(?:\/|[-–]\s*)[A-Z]{2}(?![\p{L}])/u;
 
 const PUBLIC_AGENT_CONTEXT =
-  /\b(procurador(a)?|promotor(a)?|ju[ií]z(a)?|desembargador(a)?|ministro|ministra|auditor(a)?(-fiscal)?|servidor(a)?|escriv[aã]o|escriv[ãa]|oficial de justi[çc]a|analista judici[áa]rio|t[ée]cnico judici[áa]rio|delegad[oa]|magistrad[oa]|matr[ií]cula)\b/iu;
+  /\b(procurador(a)?|promotor(a)?|ju[ií]z(a)?|desembargador(a)?|ministro|ministra|auditor(a)?(-fiscal)?|servidor(a)?|escriv[aã]o|escriv[ãa]|oficial de justi[çc]a|analista judici[áa]rio|t[ée]cnico judici[áa]rio|delegad[oa]|magistrad[oa])\b/iu;
 
 interface Token {
   text: string;
@@ -95,34 +117,48 @@ function tokenize(line: string, offset: number): Token[] {
 
 interface Run {
   tokens: Token[];
-  /** Token imediatamente anterior à sequência, na mesma linha. */
-  before?: Token;
+  /** Índice, em `tokens`, do primeiro token da sequência. */
+  first: number;
 }
 
-/** Quebra a linha em sequências de palavras com maiúscula, unidas só por espaço e conectivos. */
+/** Espaço entre palavras: só espaços, ou uma quebra de linha simples (não um parágrafo). */
+const SPACE = /^[ \t]+$/;
+const SOFT_BREAK = /^[ \t]*\n[ \t]*$/;
+
+/**
+ * Quebra o texto em sequências de palavras com maiúscula, unidas por espaço e conectivos. Uma sequência
+ * continua na linha seguinte (célula estreita de tabela, nome no fim da linha) se a palavra seguinte
+ * tiver a mesma caixa (CAIXA ALTA com CAIXA ALTA, Inicial com Inicial).
+ */
 function runsOf(text: string, tokens: Token[], firstNames: Set<string>): Run[] {
   const runs: Run[] = [];
   let cur: Token[] = [];
-  let before: Token | undefined;
+  let first = 0;
   const flush = () => {
     while (cur.length && CONNECTORS.has(cur[cur.length - 1].folded)) cur.pop();
-    if (cur.length) runs.push({ tokens: cur, before });
+    if (cur.length) runs.push({ tokens: cur, first });
     cur = [];
   };
+  const lastName = () => [...cur].reverse().find((t) => t.kind === "cap" || t.kind === "upper");
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     const prev = tokens[i - 1];
     const gap = prev ? text.slice(prev.end, t.start) : "";
-    const joined = cur.length > 0 && /^[ \t]+$/.test(gap) && !cur[cur.length - 1].dotted;
+    const ref = lastName();
+    const sameCase = ref !== undefined && (t.kind === ref.kind || CONNECTORS.has(t.folded) || t.kind === "initial");
+    const joined =
+      cur.length > 0 && !cur[cur.length - 1].dotted && (SPACE.test(gap) || (SOFT_BREAK.test(gap) && sameCase));
     if (!joined) flush();
-    const isName = (t.kind === "cap" || t.kind === "upper") && !STOP.has(t.folded) && !PLACE_BEFORE.has(t.folded);
-    // "e" entre duas pessoas ("Ana Souza e Ana Lima") separa, não une: só conecta se a palavra seguinte não for primeiro nome.
-    const next = tokens[i + 1];
-    const separatesPeople = t.folded === "e" && next !== undefined && firstNames.has(next.folded);
-    const isConnector = CONNECTORS.has(t.folded) && cur.length > 0 && !separatesPeople;
+    const isConnectorWord = CONNECTORS.has(t.folded);
+    const isName = (t.kind === "cap" || t.kind === "upper") && !isConnectorWord && !STOP.has(t.folded) && !PLACE_BEFORE.has(t.folded);
+    // "e" entre duas pessoas ("Ana Souza e Ana Lima", "filho de Lucinéia … e de Valdomiro …") separa, não une.
+    let k = i + 1;
+    while (k < tokens.length && CONNECTORS.has(tokens[k].folded)) k++;
+    const separatesPeople = t.folded === "e" && k < tokens.length && firstNames.has(tokens[k].folded);
+    const isConnector = isConnectorWord && cur.length > 0 && !separatesPeople;
     const isInitial = t.kind === "initial" && cur.length > 0;
-    if (isName || isConnector || isInitial || (t.kind === "upper" && COMPANY_SUFFIX.test(t.text.toLowerCase()) && cur.length > 0)) {
-      if (cur.length === 0) before = prev && /^[ \t]+$/.test(gap) ? prev : undefined;
+    if (isName || isConnector || isInitial) {
+      if (cur.length === 0) first = i;
       cur.push(t);
       if (t.dotted && t.kind !== "initial") flush();
     } else {
@@ -131,6 +167,18 @@ function runsOf(text: string, tokens: Token[], firstNames: Set<string>): Run[] {
   }
   flush();
   return runs;
+}
+
+/** Antes da sequência há um tipo de lugar ("Rua", "Comarca de", "Av. Engenheiro")? */
+function placeBefore(text: string, tokens: Token[], first: number): boolean {
+  for (let i = first - 1; i >= 0 && i >= first - 4; i--) {
+    const t = tokens[i];
+    const gap = text.slice(t.end, tokens[i + 1].start);
+    if (!SPACE.test(gap) && !SOFT_BREAK.test(gap)) return false;
+    if (PLACE_BEFORE.has(t.folded) || t.folded === "comarca" || t.folded === "foro" || t.folded === "municipio") return true;
+    if (!CONNECTORS.has(t.folded) && !STREET_HONORIFICS.has(t.folded)) return false;
+  }
+  return false;
 }
 
 interface Candidate {
@@ -142,30 +190,95 @@ interface Candidate {
   key: string[];
 }
 
-function candidatesIn(text: string, firstNames: Set<string>): Candidate[] {
+function tokenizeAll(text: string): Token[] {
+  return tokenize(text, 0);
+}
+
+/** Nomes de cidade citados com UF no documento ("Bela Vista de Goiás/GO", "São Paulo – SP"). */
+function citiesIn(text: string): Set<string> {
+  const cities = new Set<string>();
+  const re = /(\p{Lu}[\p{L}'’-]+(?:[ \t]+(?:d[aeo]s?|de|\p{Lu}[\p{L}'’-]+)){0,4})[ \t]*(?:\/|[-–][ \t]*)[A-Z]{2}(?![\p{L}])/gu;
+  for (const m of text.matchAll(re)) {
+    const words = fold(m[1]).split(/\s+/).filter((w) => !CONNECTORS.has(w));
+    // Todos os finais da sequência: "Zona Rural, Bela Vista de Goiás" → "bela vista goias", "vista goias", "goias".
+    for (let i = 0; i < words.length; i++) cities.add(words.slice(i).join(" "));
+  }
+  return cities;
+}
+
+function personCandidates(text: string, tokens: Token[], firstNames: Set<string>): Candidate[] {
   const out: Candidate[] = [];
-  let offset = 0;
-  for (const line of text.split("\n")) {
-    const tokens = tokenize(line, offset);
-    for (const run of runsOf(text, tokens, firstNames)) {
-      const ts = run.tokens;
-      const last = ts[ts.length - 1];
-      const words = (list: Token[]) => list.filter((t) => !CONNECTORS.has(t.folded)).map((t) => t.folded);
-      if (COMPANY_SUFFIX.test(last.text.toLowerCase()) && ts.length >= 2) {
-        out.push({ kind: "EMPRESA", text: text.slice(ts[0].start, last.end), start: ts[0].start, end: last.end, key: words(ts) });
-        continue;
-      }
-      if (run.before && PLACE_BEFORE.has(run.before.folded)) continue;
-      const first = ts.findIndex((t) => (t.kind === "cap" || t.kind === "upper") && firstNames.has(t.folded));
-      if (first < 0) continue;
-      const span = ts.slice(first, first + 8);
-      while (span.length && CONNECTORS.has(span[span.length - 1].folded)) span.pop();
-      const significant = span.filter((t) => !CONNECTORS.has(t.folded));
-      if (significant.length < 2) continue;
-      const end = span[span.length - 1].end;
-      out.push({ kind: "PESSOA", text: text.slice(span[0].start, end), start: span[0].start, end, key: words(span) });
+  const cities = citiesIn(text);
+  const words = (list: Token[]) => list.filter((t) => !CONNECTORS.has(t.folded)).map((t) => t.folded);
+  for (const run of runsOf(text, tokens, firstNames)) {
+    const ts = run.tokens;
+    if (placeBefore(text, tokens, run.first)) continue;
+    const first = ts.findIndex((t) => (t.kind === "cap" || t.kind === "upper") && firstNames.has(t.folded) && !NOT_ANCHOR.has(t.folded));
+    if (first < 0) continue;
+    // Palavras antes do primeiro nome que sejam lugar/título ("São", "Santa") descartam a sequência.
+    if (ts.slice(0, first).some((t) => NOT_ANCHOR.has(t.folded) || STREET_HONORIFICS.has(t.folded))) continue;
+    const span = ts.slice(first, first + 8);
+    while (span.length && CONNECTORS.has(span[span.length - 1].folded)) span.pop();
+    if (span.filter((t) => !CONNECTORS.has(t.folded)).length < 2) continue;
+    const lastToken = span[span.length - 1];
+    // Ponto final de frase não faz parte do nome ("… Diego Henrique Medeiros."), só o de inicial ("Rosimeire C.").
+    const end = lastToken.dotted && lastToken.kind !== "initial" ? lastToken.end - 1 : lastToken.end;
+    if (CITY_UF_AFTER.test(text.slice(end, end + 8))) continue;
+    if (cities.has(words(span).join(" "))) continue;
+    out.push({ kind: "PESSOA", text: text.slice(span[0].start, end), start: span[0].start, end, key: words(span) });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Empresas: palavras com maiúscula (admitindo "&", "e", "de", "em", "para") terminadas em sufixo
+// societário. Cargos e palavras de ligação no começo são descartados ("Sócio-administrador de …").
+
+const COMPANY = new RegExp(
+  String.raw`(?<![\p{L}\d])((?:\p{Lu}[\p{L}\d'’.-]*|&)(?:(?:[ \t]+|[ \t]*\n[ \t]*)(?:\p{Lu}[\p{L}\d'’.-]*|&|d[aeo]s?|de|e|em|para))*?)(?:[ \t]+|[ \t]*\n[ \t]*)(ADVOGADOS ASSOCIADOS|Advogados Associados|LTDA|Ltda|EIRELI|Eireli|EPP|ME|S\.\s?A|S\/A|SA|Advogados|ADVOGADOS|Associados|ASSOCIADOS)(\.)?(?![\p{L}\d])`,
+  "gu",
+);
+/** Instituições financeiras grandes não são dado pessoal das partes. */
+const NOT_A_PARTY = /^(banco|caixa econ[ôo]mica|ordem dos advogados)/i;
+/** Palavras genéricas de razão social: não servem como nome curto da empresa. */
+const GENERIC_COMPANY_WORDS = new Set(
+  `construtora ceramica industria comercio servicos solucoes engenharia torrefacao transportes transportadora logistica
+  administradora administrativo apoio empreendimentos participacoes cafes alimentos comercial industrial imobiliaria
+  incorporadora tecnologia sistemas consultoria assessoria advogados associados sociedade grupo holding brasil nacional
+  distribuidora importadora exportadora agropecuaria agricola eletrica mecanica metalurgica textil saude educacao`
+    .split(/\s+/)
+    .filter(Boolean),
+);
+
+function companyCandidates(text: string): Candidate[] {
+  const out: Candidate[] = [];
+  for (const m of text.matchAll(COMPANY)) {
+    let start = m.index;
+    const end = m.index + m[0].length;
+    // Quebra de linha só faz parte do nome em CAIXA ALTA dos dois lados ou depois de conectivo
+    // ("Vetoria Soluções em" / "Engenharia Elétrica Ltda."); senão é outra célula ou linha ("Estabelecimento").
+    const lines = text.slice(start, end).split("\n");
+    let keep = lines.length - 1;
+    while (keep > 0) {
+      const prevLine = lines[keep - 1].trim();
+      const lastWord = prevLine.split(/\s+/).pop() ?? "";
+      const bothUpper = !/\p{Ll}/u.test(prevLine) && !/\p{Ll}/u.test(lines[keep]);
+      if (!bothUpper && !CONNECTORS.has(fold(lastWord)) && !["em", "para", "&"].includes(fold(lastWord))) break;
+      keep--;
     }
-    offset += line.length + 1;
+    start = end - lines.slice(keep).join("\n").length;
+    // Descarta cargos e ligações no início ("Sócio-administrador de …").
+    for (const w of text.slice(start, end).matchAll(/\S+/g)) {
+      const f = fold(w[0].replace(/\.$/, ""));
+      if (STOP.has(f) || CONNECTORS.has(f) || f === "em" || f === "para" || f === "&" || STREET_HONORIFICS.has(f)) continue;
+      start += w.index;
+      break;
+    }
+    const name = text.slice(start, end).replace(/^\s+/, "");
+    start = end - name.length;
+    const key = fold(name).split(/\s+/).filter((w) => !CONNECTORS.has(w));
+    if (key.length < 2 || NOT_A_PARTY.test(name)) continue;
+    out.push({ kind: "EMPRESA", text: name, start, end, key });
   }
   return out;
 }
@@ -176,6 +289,14 @@ const isPrefix = (a: string[], b: string[]) => a.length <= b.length && a.every((
 const isContiguousPart = (a: string[], b: string[]) => {
   for (let i = 0; i + a.length <= b.length; i++) if (a.every((w, j) => w === b[i + j])) return true;
   return false;
+};
+
+/** Primeiro e último nome iguais, e as demais palavras na mesma ordem ("Anselmo Paiva" em "Anselmo Teodoro Paiva"). */
+const isAbbreviationOf = (a: string[], b: string[]) => {
+  if (a.length < 2 || a.length > b.length || a[0] !== b[0] || a[a.length - 1] !== b[b.length - 1]) return false;
+  let j = 0;
+  for (const w of b) if (w === a[j]) j++;
+  return j === a.length;
 };
 
 /** Contexto ao redor de uma menção, sem atravessar parágrafos (linha em branco). */
@@ -190,7 +311,11 @@ function contextAround(text: string, start: number, end: number, radius = 60): {
  * (CAIXA ALTA, nome partido em linhas de tabela, só o primeiro nome).
  */
 export function suggestEntities(text: string, firstNames: Set<string>): Suggestion[] {
-  const cands = candidatesIn(text, firstNames);
+  const tokens = tokenizeAll(text);
+  const companies = companyCandidates(text);
+  // Pessoa dentro de razão social ("Pedra Lilás…", "Horizonte Ltda.") é parte da empresa, não pessoa.
+  const persons = personCandidates(text, tokens, firstNames).filter((p) => !companies.some((c) => p.start < c.end && p.end > c.start));
+  const cands = [...persons, ...companies];
 
   // Agrupa: mesma sequência de palavras, ou uma é início da outra ("Hortênsia Maranhão" ⊂ "Hortênsia Maranhão Quintela").
   const groups: { kind: EntityKind; key: string[]; items: Candidate[] }[] = [];
@@ -198,7 +323,9 @@ export function suggestEntities(text: string, firstNames: Set<string>): Suggesti
     // Prefixo: nome partido em linhas de tabela. Trecho contínuo com 2+ palavras: nome que começou no fim
     // da linha anterior ("JOÃO" / "PEDRO ALMEIDA"), pessoa de qualquer forma já citada por inteiro.
     const g = groups.find(
-      (g) => g.kind === c.kind && (isPrefix(c.key, g.key) || (c.kind === "PESSOA" && c.key.length >= 2 && isContiguousPart(c.key, g.key))),
+      (g) =>
+        g.kind === c.kind &&
+        (isPrefix(c.key, g.key) || (c.kind === "PESSOA" && c.key.length >= 2 && (isContiguousPart(c.key, g.key) || isAbbreviationOf(c.key, g.key)))),
     );
     if (g) g.items.push(c);
     else groups.push({ kind: c.kind, key: c.key, items: [c] });
@@ -216,6 +343,31 @@ export function suggestEntities(text: string, firstNames: Set<string>): Suggesti
     owners[0].items.push({ kind: "PESSOA", text: m[0], start: m.index, end, key: [fold(m[0])] });
   }
 
+  const tokenStartingAt = new Map(tokens.map((t, i) => [t.start, i]));
+  const isCovered = (t: Token) => covered(t.start, t.end) || groups.some((g) => g.items.some((i) => t.start < i.end && t.end > i.start));
+
+  // Nome curto da empresa ("a LOGIMAX", "a Bellacruz"): palavra distintiva da razão social citada sozinha.
+  for (const g of groups.filter((g) => g.kind === "EMPRESA")) {
+    const distinctive = new Set(
+      g.key.filter((w) => w.length >= 4 && !GENERIC_COMPANY_WORDS.has(w) && !firstNames.has(w) && !STOP.has(w) && !/^(ltda|eireli)\.?$/.test(w)),
+    );
+    for (const t of tokens) {
+      if ((t.kind === "cap" || t.kind === "upper") && distinctive.has(t.folded) && !isCovered(t)) {
+        g.items.push({ kind: "EMPRESA", text: t.text.replace(/\.$/, ""), start: t.start, end: t.start + t.text.replace(/\.$/, "").length, key: [t.folded] });
+      }
+    }
+  }
+
+  // Apelido ("WEVERTON RODRIGUES DA CUNHA, vulgo “Mosquito”"): vira grafia da pessoa citada logo antes.
+  for (const m of text.matchAll(/\bvulgo\s*[“"'‘]?(\p{Lu}[\p{L}'’-]+(?:\s+\p{Lu}[\p{L}'’-]+)?)[”"'’]?/gu)) {
+    const owner = groups.find((g) => g.kind === "PESSOA" && g.items.some((i) => i.end <= m.index && m.index - i.end < 40));
+    if (!owner) continue;
+    const nick = fold(m[1]);
+    for (const n of text.matchAll(new RegExp(`(?<![\\p{L}])${m[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"))) {
+      owner.items.push({ kind: "PESSOA", text: n[0], start: n.index, end: n.index + n[0].length, key: [nick] });
+    }
+  }
+
   // Pronome de tratamento + sobrenome ("o Sr. Almeida"): liga à única pessoa com esse sobrenome;
   // se houver mais de uma (ou nenhuma), vira sugestão à parte para o usuário decidir.
   const people = groups.filter((g) => g.kind === "PESSOA");
@@ -226,6 +378,8 @@ export function suggestEntities(text: string, firstNames: Set<string>): Suggesti
     const end = start + m[0].length;
     if (STOP.has(surname) || PLACE_BEFORE.has(surname) || byFirst.has(surname)) continue;
     if (covered(end - m[2].length, end)) continue;
+    const titleToken = tokenStartingAt.get(start);
+    if (titleToken !== undefined && placeBefore(text, tokens, titleToken)) continue; // "Rua Doutor Bacelar"
     const mention: Candidate = { kind: "PESSOA", text: m[0].replace(/\s+/g, " "), start, end, key: [surname] };
     const owners = people.filter((g) => g.key.slice(1).includes(surname));
     if (owners.length === 1) {

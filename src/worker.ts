@@ -21,12 +21,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   try {
     const req = e.data;
     if (req.type === "analyze") {
-      const [{ extractText }, { parseFirstNames, suggestEntities }, names] = await Promise.all([
-        import("./core/leaks.ts"),
+      const [{ documentText }, { parseFirstNames, suggestEntities }, names] = await Promise.all([
+        import("./core/text.ts"),
         import("./core/names.ts"),
         import("./data/first-names.txt?raw"),
       ]);
-      const suggestions = suggestEntities(extractText(new Uint8Array(req.pdf)), parseFirstNames(names.default));
+      const suggestions = suggestEntities(documentText(new Uint8Array(req.pdf)), parseFirstNames(names.default));
       post({ ok: true, type: "analyze", suggestions });
     } else {
       const { anonymizePdf } = await import("./core/anonymize.ts");

@@ -1,0 +1,58 @@
+{
+  "description": "Procuração ad judicia fictícia e contrato de honorários anexo, em prosa corrida sem tabelas, com sobrenomes que também são palavras ou cidades (Paz, Campos, Vitória, Rosa, Santos, Luz, Clara) e as mesmas palavras usadas em sentido comum no texto.",
+  "people": [
+    { "name": "LEONOR VITÓRIA PAZ CAMPOS", "role": "parte", "mentions": ["LEONOR VITÓRIA PAZ CAMPOS", "LEONOR VITORIA PAZ CAMPOS", "Sra. Leonor"] },
+    { "name": "BERNARDO ROSA FONTES", "role": "advogado", "mentions": ["BERNARDO ROSA FONTES", "Dr. Bernardo Rosa Fontes", "Bernardo Rosa Fontes", "Bernardo Fontes"] },
+    { "name": "HELENA SANTOS VILELA", "role": "advogado", "mentions": ["HELENA SANTOS VILELA", "Helena Santos Vilela", "Helena Vilela"] },
+    { "name": "Otávio Ramos Salgueiro", "role": "testemunha", "mentions": ["Otávio Ramos Salgueiro"] },
+    { "name": "Clara Luz Nascimento", "role": "testemunha", "mentions": ["Clara Luz Nascimento"] }
+  ],
+  "companies": [
+    { "name": "ROSA & SANTOS ADVOGADOS ASSOCIADOS", "mentions": ["ROSA & SANTOS ADVOGADOS ASSOCIADOS"] },
+    { "name": "CONSTRUTORA ALVORADA DO PARAÍSO LTDA.", "mentions": ["CONSTRUTORA ALVORADA DO PARAÍSO LTDA."] }
+  ],
+  "pii": [
+    { "type": "rg", "value": "27.418.093-6" },
+    { "type": "cpf", "value": "445.928.504-59" },
+    { "type": "titulo_eleitor", "value": "3184 2207 0159" },
+    { "type": "outro", "value": "zona 118, seção 0342" },
+    { "type": "email", "value": "leonor.campos@example.com" },
+    { "type": "telefone", "value": "(16) 99244-1078" },
+    { "type": "endereco", "value": "Rua das Hortênsias, nº 77, Casa 2, Jardim Botânico" },
+    { "type": "cep", "value": "14021-655" },
+    { "type": "oab", "value": "402.337" },
+    { "type": "cpf", "value": "020.487.676-13" },
+    { "type": "email", "value": "bernardo.fontes@rosasantos.example" },
+    { "type": "oab", "value": "451.268" },
+    { "type": "cpf", "value": "986.353.213-40" },
+    { "type": "email", "value": "helena.vilela@rosasantos.example" },
+    { "type": "cnpj", "value": "67.594.314/0001-30" },
+    { "type": "oab", "value": "31.874" },
+    { "type": "endereco", "value": "Avenida Presidente Vargas, nº 2.121, 9º andar, sala 903, Jardim América" },
+    { "type": "cep", "value": "14020-260" },
+    { "type": "email", "value": "contato@rosasantos.example" },
+    { "type": "cnpj", "value": "89.431.925/0001-09" },
+    { "type": "conta_bancaria", "value": "agência 3062, conta corrente nº 28.553-9" },
+    { "type": "cpf", "value": "763.162.966-81" },
+    { "type": "cpf", "value": "717.076.910-70" },
+    { "type": "codigo_verificacao", "value": "8D41-77QA-K2M9" },
+    { "type": "codigo_verificacao", "value": "3F5C-9A12-7B44" }
+  ],
+  "keep": [
+    "PROCURAÇÃO AD JUDICIA ET EXTRA",
+    "art. 105 do Código de Processo Civil",
+    "Campos eventualmente deixados em branco",
+    "Vitória parcial na demanda",
+    "Santos e Vitória são as cidades",
+    "Paz e boa-fé objetiva",
+    "à luz do art. 23 da Lei nº 8.906/1994",
+    "de forma clara",
+    "R$ 8.500,00",
+    "R$ 1.700,00",
+    "20% (vinte por cento)",
+    "Banco Cooperativo Sicoob S.A. (756)",
+    "Comarca de Ribeirão Preto/SP",
+    "19 de novembro de 2026",
+    "Ordem dos Advogados do Brasil, Seção de São Paulo"
+  ]
+}

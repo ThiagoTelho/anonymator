@@ -11,7 +11,8 @@
     "fixture": "node scripts/make-fixture.mjs",
     "verify": "node scripts/verify.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "preview:fixture": "node scripts/preview-fixture.ts"
   },
   "dependencies": {
     "mupdf": "^1.28.6",

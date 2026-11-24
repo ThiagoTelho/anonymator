@@ -4,6 +4,7 @@
 import * as mupdf from "mupdf";
 import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts";
 import { fitLabel, shortLabel } from "./labels.ts";
+import { readPage, type Char } from "./text.ts";
 
 export interface Person {
   /** Grafias da mesma pessoa no documento (ex.: nome completo, "Sr. Almeida"). */
@@ -33,35 +34,6 @@ export interface AnonymizeResult {
   text: string;
   /** Tabela de correspondência marcador → dado original. Nunca sai da máquina do usuário. */
   replacements: Replacement[];
-}
-
-interface Char {
-  c: string;
-  quad: mupdf.Quad | null;
-  line: number;
-}
-
-/** Extrai o texto da página junto com o quadrilátero de cada caractere. */
-function readPage(page: mupdf.PDFPage): { text: string; chars: Char[] } {
-  const chars: Char[] = [];
-  let line = 0;
-  const stext = page.toStructuredText("preserve-whitespace");
-  stext.walk({
-    onChar(c, _origin, _font, _size, quad) {
-      chars.push({ c, quad, line });
-    },
-    endLine() {
-      chars.push({ c: "\n", quad: null, line });
-      line++;
-    },
-    endTextBlock() {
-      chars.push({ c: "\n", quad: null, line });
-    },
-  });
-  // Cada entrada de `chars` corresponde a exatamente uma posição em `text`.
-  // Caracteres fora do BMP viram 2 unidades UTF-16; substituímos por um só para manter o alinhamento.
-  const text = chars.map((ch) => (ch.c.length === 1 ? ch.c : "�")).join("");
-  return { text, chars };
 }
 
 /** Agrupa os quads de um trecho por linha e devolve um retângulo por linha. */

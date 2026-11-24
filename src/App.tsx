@@ -171,8 +171,9 @@ export default function App() {
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={detect} onChange={(e) => setDetect(e.target.checked)} />
-            Detectar automaticamente endereços, CPF, CNPJ, PIS, CTPS, e-mail, telefone, CEP, OAB, data de nascimento,
-            números de processo e códigos de verificação
+            Detectar automaticamente documentos (CPF, CNPJ, RG, CNH, PIS, CTPS, título de eleitor, OAB), endereços,
+            contatos, dados bancários, placas, datas de nascimento, iniciais, escolas, números de processo e protocolo
+            e códigos de verificação
           </label>
 
           <button

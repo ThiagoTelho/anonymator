@@ -1,0 +1,60 @@
+{
+  "description": "Autos fictícios de ação de alimentos no e-SAJ/TJSP em segredo de justiça: petição inicial, decisão de alimentos provisórios e manifestação do MP, com menores citados por nome completo, prenome e iniciais.",
+  "people": [
+    { "name": "RAVI ALCÂNTARA MEDEIROS", "role": "menor", "mentions": ["RAVI ALCÂNTARA MEDEIROS", "Ravi", "R.A.M."] },
+    { "name": "MAITÊ ALCÂNTARA MEDEIROS", "role": "menor", "mentions": ["MAITÊ ALCÂNTARA MEDEIROS", "Maitê", "M.A.M."] },
+    { "name": "KARINE SOUZA LEMOS DE ALCÂNTARA", "role": "parte", "mentions": ["KARINE SOUZA LEMOS DE ALCÂNTARA", "Karine Souza Lemos de Alcântara", "K.S.L.A."] },
+    { "name": "DIEGO HENRIQUE MEDEIROS", "role": "parte", "mentions": ["DIEGO HENRIQUE MEDEIROS", "Diego Henrique Medeiros", "Sr. Diego", "Sr. Diego Henrique", "D.H.M."] },
+    { "name": "TAINÁ HOLANDA REIS", "role": "advogado", "mentions": ["TAINÁ HOLANDA REIS", "TAINA HOLANDA REIS"] },
+    { "name": "Lívia Montenegro Saraiva", "role": "agente_publico", "mentions": ["Lívia Montenegro Saraiva", "LIVIA MONTENEGRO SARAIVA"] },
+    { "name": "CECÍLIA ARRUDA VASCONCELLOS PIRES", "role": "agente_publico", "mentions": ["CECÍLIA ARRUDA VASCONCELLOS PIRES", "CECILIA ARRUDA VASCONCELLOS PIRES"] }
+  ],
+  "companies": [
+    { "name": "VETORIA SOLUÇÕES EM ENGENHARIA ELÉTRICA LTDA.", "mentions": ["VETORIA SOLUÇÕES EM ENGENHARIA ELÉTRICA LTDA.", "Vetoria Soluções em Engenharia Elétrica Ltda.", "Vetoria"] },
+    { "name": "Colégio Ciranda do Saber", "mentions": ["Colégio Ciranda do Saber"] }
+  ],
+  "pii": [
+    { "type": "data_nascimento", "value": "09/05/2016" },
+    { "type": "data_nascimento", "value": "21/11/2019" },
+    { "type": "rg", "value": "44.902.318-1" },
+    { "type": "cpf", "value": "693.109.802-06" },
+    { "type": "endereco", "value": "Rua Antônio Bento Ferraz, nº 312, Bloco 4, Apto 21, Jardim Marajoara" },
+    { "type": "cep", "value": "04671-115" },
+    { "type": "telefone", "value": "(11) 98820-4471" },
+    { "type": "email", "value": "karine.alcantara@example.net" },
+    { "type": "cpf", "value": "740.859.411-60" },
+    { "type": "endereco", "value": "Rua Ministro Jesuíno Cardoso, nº 1.870, casa 3, Vila Nova Conceição" },
+    { "type": "cep", "value": "04544-051" },
+    { "type": "telefone", "value": "(11) 99107-3385" },
+    { "type": "cnpj", "value": "62.093.050/0001-18" },
+    { "type": "endereco", "value": "Avenida Washington Luís, nº 6.100, sala 805, Santo Amaro" },
+    { "type": "cep", "value": "04627-005" },
+    { "type": "conta_bancaria", "value": "3127-4" },
+    { "type": "conta_bancaria", "value": "41.886-0" },
+    { "type": "pix", "value": "7c2e9a41-5b3d-4f08-a6e1-0d9b2c7f4e18" },
+    { "type": "oab", "value": "OAB/SP 397.114" },
+    { "type": "processo", "value": "1004387-30.2026.8.26.0002" },
+    { "type": "codigo_verificacao", "value": "WSTA26701984236" },
+    { "type": "codigo_verificacao", "value": "2B71C4E" },
+    { "type": "codigo_verificacao", "value": "9F3A2B1" },
+    { "type": "codigo_verificacao", "value": "WSTA26703318871" },
+    { "type": "codigo_verificacao", "value": "5DE08A3" }
+  ],
+  "keep": [
+    "TRIBUNAL DE JUSTIÇA DO ESTADO DE SÃO PAULO",
+    "FORO REGIONAL II – SANTO AMARO",
+    "2ª VARA DA FAMÍLIA E SUCESSÕES",
+    "MINISTÉRIO PÚBLICO DO ESTADO DE SÃO PAULO",
+    "SEGREDO DE JUSTIÇA",
+    "art. 4º da Lei nº 5.478/1968",
+    "art. 529 do Código de Processo Civil",
+    "art. 1.694, § 1º, do Código Civil",
+    "R$ 1.480,00",
+    "R$ 6.850,00",
+    "R$ 24.660,00",
+    "25% (vinte e cinco por cento)",
+    "Banco do Brasil S.A.",
+    "15/01/2027, às 13h30",
+    "Promotora de Justiça"
+  ]
+}

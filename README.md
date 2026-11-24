@@ -40,7 +40,8 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 
 | Caminho | Conteúdo |
 |---|---|
-| `src/core/detectors.ts` | Detectores determinísticos (endereços, CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
+| `src/core/text.ts` | Extração do texto com a posição de cada caractere, reconstruindo linhas visuais (texto justificado partido) e parágrafos pela geometria |
+| `src/core/detectors.ts` | Detectores determinísticos (endereços, RG, CNH, RENAVAM, título de eleitor, placa, agência/conta, PIX, iniciais, escola, protocolos, CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
 | `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias (inclusive "Sr. Sobrenome") e marcação de agentes públicos |
 | `src/core/labels.ts` | Encaixe legível do marcador no espaço do dado (compressão, fonte mínima, forma curta) |
 | `src/core/people.ts` | Junta as sugestões marcadas pelo usuário e os nomes digitados à mão |
@@ -51,7 +52,10 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/leaks.ts` | Verificação independente: reabre o PDF gerado e procura os dados originais |
 | `tests/` | Testes automatizados (Vitest) do motor, dos detectores e das fixtures |
 | `fixtures/` | PDFs fictícios (só dados inventados), cada um com um `.json` dizendo o que deve sumir e o que deve ficar |
-| `scripts/make-fixture.mjs` | Gera o PDF fictício no estilo do PJe |
+| `fixtures/src/` | Fontes HTML das fixtures e, quando houver, o gabarito independente (`*.truth.json`) |
+| `scripts/make-fixture.mjs` | Gera os PDFs de `fixtures/` a partir de `fixtures/src/*.html` |
+| `scripts/truth-to-spec.py` | Converte um gabarito independente no `.json` da fixture |
+| `scripts/preview-fixture.ts` | Anonimiza uma fixture como o usuário faria e grava PDF, texto e imagem em `out/` |
 | `scripts/verify.ts` | Anonimiza uma fixture e grava a saída em `out/` para inspeção manual |
 
 ## Desenvolvimento
@@ -92,6 +96,10 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
   ao lado, as sugestões exatas esperadas, o que precisa sumir (`mustRemove`), o que precisa ficar (`mustKeep`)
   e as lacunas conhecidas (`knownGaps`, que avisam quando passarem a ser cobertas). Para cobrir um novo
   tipo de documento, basta adicionar o par `.pdf` + `.json`.
+- **Gabaritos independentes**: parte das fixtures (`reclamacao-trt`, `alimentos-esaj`, `denuncia-criminal`,
+  `procuracao-contrato`) foi escrita, com gabarito, por quem não conhecia as regras do detector, para que o teste
+  não seja moldado pela implementação. O gabarito fica em `fixtures/src/<nome>.truth.json` e vira o `.json`
+  da fixture com `scripts/truth-to-spec.py`; o teste também rejeita sugestões fora do gabarito (falsos positivos).
 - **Interface**: testes end-to-end (Playwright, contra o build com CSP) entram junto com a tela de revisão.
 
 **Nunca use processos reais em testes ou fixtures do repositório.** Só documentos fictícios, com dados inventados.

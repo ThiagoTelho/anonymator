@@ -80,7 +80,9 @@
     "Jardim Bela Aurora",
     "Rodovia GO-080, km 14",
     "Qd. 21, Lt. 9",
-    "Zona Rural"
+    "Zona Rural",
+    "PRT18.850180/2025",
+    "OS 51371842/2025"
   ],
   "mustKeep": [
     "MINISTÉRIO PÚBLICO DO TRABALHO",
@@ -97,8 +99,6 @@
     "Nerópolis/GO"
   ],
   "knownGaps": [
-    "PRT18.850180/2025",
-    "OS 51371842/2025",
     "22904619-1"
   ]
 }

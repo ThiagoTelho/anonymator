@@ -33,6 +33,13 @@ const ABBREVIATIONS: Record<string, string> = {
   REGISTRO: "REG",
   CODIGO: "COD",
   RASTREIO: "RAST",
+  RENAVAM: "REN",
+  ELEITOR: "EL",
+  CONTA: "CT",
+  PLACA: "PL",
+  INICIAIS: "INI",
+  ESCOLA: "ESC",
+  PROTOCOLO: "PROT",
 };
 
 /** Forma curta do marcador: [PESSOA_5] → [P5], [NASCIMENTO_1] → [NASC1]. */

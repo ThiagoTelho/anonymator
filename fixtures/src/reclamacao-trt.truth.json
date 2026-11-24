@@ -1,0 +1,63 @@
+{
+  "description": "Petição inicial fictícia de reclamação trabalhista (PJe, TRT da 2ª Região) com reclamante, duas reclamadas (S.A. e LTDA tomadora, responsabilidade subsidiária), tabela de verbas, rol de testemunhas com nome em célula estreita.",
+  "people": [
+    { "name": "VALDIRENE APARECIDA NOGUEIRA DOS ANJOS", "role": "parte", "mentions": ["VALDIRENE APARECIDA NOGUEIRA DOS ANJOS", "Sra. Valdirene"] },
+    { "name": "HEITOR BRANDÃO QUIXADÁ", "role": "advogado", "mentions": ["HEITOR BRANDÃO QUIXADÁ", "HEITOR BRANDAO QUIXADA"] },
+    { "name": "Anselmo Teodoro Paiva", "role": "outro", "mentions": ["Sr. Anselmo Teodoro Paiva", "Sr. Anselmo", "Anselmo Paiva"] },
+    { "name": "ROSIMEIRE DUTRA FALCÃO", "role": "testemunha", "mentions": ["ROSIMEIRE DUTRA FALCÃO", "Rosimeire"] },
+    { "name": "JEFFERSON KAUAN BATISTA DE OLIVEIRA", "role": "testemunha", "mentions": ["JEFFERSON KAUAN BATISTA DE OLIVEIRA", "Sr. Jefferson Kauan"] }
+  ],
+  "companies": [
+    { "name": "LOGIMAX SERVIÇOS DE APOIO ADMINISTRATIVO S.A.", "mentions": ["LOGIMAX SERVIÇOS DE APOIO ADMINISTRATIVO S.A.", "LOGIMAX"] },
+    { "name": "TORREFAÇÃO BELLACRUZ COMÉRCIO DE CAFÉS LTDA.", "mentions": ["TORREFAÇÃO BELLACRUZ COMÉRCIO DE CAFÉS LTDA.", "Bellacruz"] }
+  ],
+  "pii": [
+    { "type": "processo", "value": "1001873-21.2026.5.02.0068" },
+    { "type": "data_nascimento", "value": "14/03/1986" },
+    { "type": "rg", "value": "38.611.502-7" },
+    { "type": "cpf", "value": "200.297.727-53" },
+    { "type": "pis", "value": "482.89466.83-5" },
+    { "type": "ctps", "value": "4417382" },
+    { "type": "outro", "value": "0021-SP" },
+    { "type": "endereco", "value": "Rua Professora Celsa Marangoni, nº 1.245, apto 32, Vila Prudente" },
+    { "type": "cep", "value": "03133-020" },
+    { "type": "telefone", "value": "(11) 97345-2218" },
+    { "type": "email", "value": "valdirene.anjos@example.com" },
+    { "type": "endereco", "value": "Rua Conselheiro Brotero, nº 589, conjunto 41, Santa Cecília" },
+    { "type": "cep", "value": "01232-011" },
+    { "type": "cnpj", "value": "55.405.075/0001-44" },
+    { "type": "endereco", "value": "Avenida Engenheiro Armando de Arruda Pereira, nº 3.310, Galpão 7, Jabaquara" },
+    { "type": "cep", "value": "04309-011" },
+    { "type": "cnpj", "value": "96.023.338/0001-38" },
+    { "type": "endereco", "value": "Rua Doutor Bacelar, nº 1.022, Vila Clementino" },
+    { "type": "cep", "value": "04026-002" },
+    { "type": "rg", "value": "29.774.130-X" },
+    { "type": "endereco", "value": "Rua Tenente Otávio Gomes, nº 88, casa 2, Aclimação" },
+    { "type": "cep", "value": "01526-010" },
+    { "type": "rg", "value": "51.203.886-4" },
+    { "type": "endereco", "value": "Travessa Juruaia, nº 15, Jardim Santa Terezinha" },
+    { "type": "cep", "value": "06243-170" },
+    { "type": "oab", "value": "OAB/SP 418.902" },
+    { "type": "email", "value": "heitor.quixada@quixada-adv.example" },
+    { "type": "telefone", "value": "(11) 3214-7790" },
+    { "type": "codigo_verificacao", "value": "3f8a21c" },
+    { "type": "codigo_verificacao", "value": "26112409153827400000387715204" }
+  ],
+  "keep": [
+    "TRIBUNAL REGIONAL DO TRABALHO DA 2ª REGIÃO",
+    "VARA DO TRABALHO DE SÃO PAULO",
+    "art. 840, § 1º, da Consolidação das Leis do Trabalho",
+    "RECLAMAÇÃO TRABALHISTA",
+    "Súmula nº 331, item IV, do TST",
+    "art. 5º-A, § 5º, da Lei nº 6.019/1974",
+    "R$ 2.380,00",
+    "R$ 31.742,18",
+    "R$ 77.300,05",
+    "Multa do art. 477, § 8º, da CLT",
+    "adicional de insalubridade em grau médio (20%)",
+    "Barueri/SP",
+    "Súmula nº 264 do TST",
+    "24 de novembro de 2026",
+    "auxiliar de expedição"
+  ]
+}
