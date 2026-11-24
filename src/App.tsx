@@ -156,7 +156,7 @@ export default function App() {
               3. Acrescente nomes que faltaram
             </label>
             <p className="mt-1 text-xs text-slate-500">
-              Um por linha. Outras formas de citar a mesma pessoa vão na mesma linha, separadas por ponto e vírgula.
+              Um por linha. Outras formas de citar a mesma pessoa vão na mesma linha, separadas por ponto e vírgula (ex.: "João Pedro Almeida; Sr. Almeida" — o "Sr." é mantido no texto).
               Maiúsculas, acentos e quebras de linha são ignorados.
             </p>
             <textarea

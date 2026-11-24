@@ -82,7 +82,7 @@ describe("findTerm", () => {
   });
 
   it("trata caracteres especiais do termo como texto literal", () => {
-    expect(findTerm("Sr. Almeida e Srx Almeida", "Sr. Almeida").map((h) => h.text)).toEqual(["Sr. Almeida"]);
+    expect(findTerm("J. Almeida e Jx Almeida", "J. Almeida").map((h) => h.text)).toEqual(["J. Almeida"]);
   });
 
   it("ignora termos vazios", () => {
@@ -175,5 +175,30 @@ describe("detectAddresses", () => {
       ["ENDERECO", "Rua 7, nº 45, Centro"],
       ["CEP", "74230-010"],
     ]);
+  });
+});
+
+describe("findTerm — pronome de tratamento + sobrenome", () => {
+  const hits = (text: string, term: string) => findTerm(text, term).map((h) => h.text);
+
+  it("marca só o sobrenome, mantendo o pronome no texto", () => {
+    const text = "O Sr. Almeida limitou-se a dizer";
+    const [h] = findTerm(text, "Sr. Almeida");
+    expect(h.text).toBe("Almeida");
+    expect(text.slice(h.start, h.end)).toBe("Almeida");
+  });
+
+  it("aceita as formas do mesmo pronome: Sr, Sr., Senhor", () => {
+    expect(hits("Sr Almeida, Sr. Almeida e Senhor Almeida", "Sr. Almeida")).toEqual(["Almeida", "Almeida", "Almeida"]);
+    expect(hits("a Sra. Oliveira e a Senhora Oliveira", "Sra. Oliveira")).toEqual(["Oliveira", "Oliveira"]);
+    expect(hits("Dra. Quintela e Doutora Quintela", "Dra. Quintela")).toEqual(["Quintela", "Quintela"]);
+  });
+
+  it("não marca o sobrenome sem o pronome nem com pronome de outro gênero", () => {
+    expect(hits("Almeida assinou; a Sra. Almeida também", "Sr. Almeida")).toEqual([]);
+  });
+
+  it("não trata como pronome quando o termo não começa por um", () => {
+    expect(hits("Maria Almeida", "Maria Almeida")).toEqual(["Maria Almeida"]);
   });
 });

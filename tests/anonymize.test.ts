@@ -95,6 +95,18 @@ describe("anonymizePdf — empresas e prioridade entre pessoas", () => {
   });
 });
 
+describe("anonymizePdf — pronome de tratamento", () => {
+  it("anonimiza o sobrenome e mantém o pronome no PDF e no texto", () => {
+    const result = run(["<p>A Sra. Oliveira aguarda a entrega. O Sr. Almeida não respondeu.</p>"], [["Maria Oliveira", "Sra. Oliveira"], ["João Almeida", "Sr. Almeida"]]);
+    expect(result.text).toContain("A Sra. [PESSOA_1] aguarda");
+    expect(result.text).toContain("O Sr. [PESSOA_2] não respondeu");
+    const pdfText = norm(extractText(result.pdf));
+    expect(pdfText).toContain("a sra.");
+    expect(pdfText).toContain("o sr.");
+    expect(pdfText).not.toMatch(/oliveira|almeida/);
+  });
+});
+
 describe("anonymizePdf — marcadores legíveis", () => {
   it("mantém o marcador perto do tamanho do texto mesmo quando o dado original é curto", () => {
     const result = run(["<p>Em agosto, o colega Gil sofreu um acidente; nascido em 14/07/1991.</p>"], [["Gil", "Gilberto Souza"]]);

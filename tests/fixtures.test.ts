@@ -38,8 +38,10 @@ const sorted = (xs: string[]) => [...xs].sort((a, b) => a.localeCompare(b));
 describe.each(pdfs)("fixture %s", (file) => {
   const spec: FixtureSpec = JSON.parse(readFileSync(join(DIR, file.replace(/\.pdf$/i, ".json")), "utf8"));
   const input = readFileSync(join(DIR, file));
-  const suggestions = spec.suggest ? suggestEntities(extractText(input), FIRST_NAMES) : [];
-  const people: Person[] = [...suggestions.map((s) => ({ variants: s.variants, kind: s.kind })), ...(spec.people ?? [])];
+  // Sugestões são calculadas se a fixture as usa (suggest) ou se confere a qualidade delas (expectedSuggestions).
+  const suggestions = spec.suggest || spec.expectedSuggestions ? suggestEntities(extractText(input), FIRST_NAMES) : [];
+  const fromSuggestions = spec.suggest ? suggestions.map((s) => ({ variants: s.variants, kind: s.kind })) : [];
+  const people: Person[] = [...fromSuggestions, ...(spec.people ?? [])];
   const result = anonymizePdf(input, { people });
   const text = norm(extractText(result.pdf));
 

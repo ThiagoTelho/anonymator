@@ -41,7 +41,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | Caminho | Conteúdo |
 |---|---|
 | `src/core/detectors.ts` | Detectores determinísticos (endereços, CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
-| `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias e marcação de agentes públicos |
+| `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias (inclusive "Sr. Sobrenome") e marcação de agentes públicos |
 | `src/core/labels.ts` | Encaixe legível do marcador no espaço do dado (compressão, fonte mínima, forma curta) |
 | `src/core/people.ts` | Junta as sugestões marcadas pelo usuário e os nomes digitados à mão |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |

@@ -101,3 +101,45 @@ describe("suggestEntities — agentes públicos", () => {
     expect(all.some((s) => s.publicAgent)).toBe(false);
   });
 });
+
+describe("suggestEntities — pronome de tratamento + sobrenome", () => {
+  it("liga 'Sr. Almeida' à única pessoa com esse sobrenome", () => {
+    const [s] = suggest("João Pedro Almeida assinou o contrato. Depois, o Sr. Almeida sumiu.");
+    expect(s.name).toBe("João Pedro Almeida");
+    expect(s.variants).toContain("Sr. Almeida");
+    expect(s.occurrences).toBe(2);
+  });
+
+  it("liga pelo sobrenome do meio também", () => {
+    const [s] = suggest("Maria Aparecida dos Santos Oliveira ajuizou. A Sra. Oliveira aguarda.");
+    expect(s.variants).toContain("Sra. Oliveira");
+  });
+
+  it("sugere à parte quando o sobrenome é de mais de uma pessoa", () => {
+    const all = suggest("João Carlos Silva e Maria Helena Silva contrataram. O Sr. Silva pagou.");
+    expect(all.map((s) => s.name)).toContain("Sr. Silva");
+    expect(all.find((s) => s.name === "João Carlos Silva")?.variants).not.toContain("Sr. Silva");
+  });
+
+  it("sugere pronome + sobrenome mesmo sem o nome completo no documento", () => {
+    expect(names("O Sr. Almeida não compareceu.")).toEqual(["Sr. Almeida"]);
+  });
+
+  it("não sugere pronome seguido de cargo ou de nome completo já sugerido", () => {
+    expect(names("Senhor Sócio-administrador, Senhora Procuradora, Senhor Juiz")).toEqual([]);
+    expect(names("Dra. Hortênsia Maranhão Quintela")).toEqual(["Hortênsia Maranhão Quintela"]);
+  });
+});
+
+describe("suggestEntities — casos de petição (PJe)", () => {
+  it("não marca a parte como agente público por causa do endereçamento ao juiz no parágrafo anterior", () => {
+    const [s] = suggest("EXCELENTÍSSIMO SENHOR DOUTOR JUIZ DE DIREITO\n\nDA 3ª VARA CÍVEL\n\nMARIA DA SILVA SOUZA, brasileira");
+    expect(s.publicAgent).toBe(false);
+  });
+
+  it("junta o nome partido no fim da linha com o nome completo citado em outro ponto", () => {
+    const all = suggest("e de JOÃO\nPEDRO ALMEIDA, CPF 111. Depois, João Pedro Almeida assinou e o Sr. Almeida sumiu.");
+    expect(all).toHaveLength(1);
+    expect(all[0].variants).toEqual(expect.arrayContaining(["João Pedro Almeida", "PEDRO ALMEIDA", "Sr. Almeida"]));
+  });
+});

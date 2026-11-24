@@ -44,6 +44,19 @@
     "TRIBUNAL DE JUSTIÇA DO ESTADO DE GOIÁS",
     "AÇÃO DE INDENIZAÇÃO POR DANOS MORAIS",
     "10/03/2023",
-    "Goiânia"
-  ]
+    "Goiânia",
+    "a Sra.",
+    "O Sr."
+  ],
+  "expectedSuggestions": {
+    "people": [
+      "Maria Aparecida dos Santos Oliveira",
+      "João Pedro Almeida",
+      "Carlos Eduardo Ferreira"
+    ],
+    "publicAgents": [],
+    "companies": [
+      "CONSTRUTORA HORIZONTE LTDA"
+    ]
+  }
 }

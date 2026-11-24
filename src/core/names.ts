@@ -70,6 +70,9 @@ interface Token {
   dotted: boolean;
 }
 
+/** Pronome de tratamento seguido de uma palavra com maiúscula (candidata a sobrenome). */
+const TITLE_MENTION = /(?<![\p{L}])(Sr|Sra|Srta|Dr|Dra|Senhor|Senhora|Senhorita|Doutor|Doutora)\.?\s+(\p{Lu}[\p{L}'’-]+)/gu;
+
 const TITLES = new Set(["sr", "sra", "srs", "dr", "dra", "drs", "exmo", "exma", "ilmo", "ilma"]);
 
 function tokenize(line: string, offset: number): Token[] {
@@ -169,6 +172,19 @@ function candidatesIn(text: string, firstNames: Set<string>): Candidate[] {
 
 const isPrefix = (a: string[], b: string[]) => a.length <= b.length && a.every((w, i) => w === b[i]);
 
+/** `a` aparece como trecho contínuo de `b` ("Pedro Almeida" em "João Pedro Almeida"). */
+const isContiguousPart = (a: string[], b: string[]) => {
+  for (let i = 0; i + a.length <= b.length; i++) if (a.every((w, j) => w === b[i + j])) return true;
+  return false;
+};
+
+/** Contexto ao redor de uma menção, sem atravessar parágrafos (linha em branco). */
+function contextAround(text: string, start: number, end: number, radius = 60): { before: string; after: string } {
+  const before = text.slice(Math.max(0, start - radius), start).split(/\n\s*\n/).pop()!;
+  const after = text.slice(end, end + radius).split(/\n\s*\n/)[0];
+  return { before, after };
+}
+
 /**
  * Sugere pessoas e empresas citadas no texto, agrupando grafias da mesma entidade
  * (CAIXA ALTA, nome partido em linhas de tabela, só o primeiro nome).
@@ -179,7 +195,11 @@ export function suggestEntities(text: string, firstNames: Set<string>): Suggesti
   // Agrupa: mesma sequência de palavras, ou uma é início da outra ("Hortênsia Maranhão" ⊂ "Hortênsia Maranhão Quintela").
   const groups: { kind: EntityKind; key: string[]; items: Candidate[] }[] = [];
   for (const c of [...cands].sort((a, b) => b.key.length - a.key.length)) {
-    const g = groups.find((g) => g.kind === c.kind && isPrefix(c.key, g.key));
+    // Prefixo: nome partido em linhas de tabela. Trecho contínuo com 2+ palavras: nome que começou no fim
+    // da linha anterior ("JOÃO" / "PEDRO ALMEIDA"), pessoa de qualquer forma já citada por inteiro.
+    const g = groups.find(
+      (g) => g.kind === c.kind && (isPrefix(c.key, g.key) || (c.kind === "PESSOA" && c.key.length >= 2 && isContiguousPart(c.key, g.key))),
+    );
     if (g) g.items.push(c);
     else groups.push({ kind: c.kind, key: c.key, items: [c] });
   }
@@ -196,13 +216,39 @@ export function suggestEntities(text: string, firstNames: Set<string>): Suggesti
     owners[0].items.push({ kind: "PESSOA", text: m[0], start: m.index, end, key: [fold(m[0])] });
   }
 
+  // Pronome de tratamento + sobrenome ("o Sr. Almeida"): liga à única pessoa com esse sobrenome;
+  // se houver mais de uma (ou nenhuma), vira sugestão à parte para o usuário decidir.
+  const people = groups.filter((g) => g.kind === "PESSOA");
+  const standalone = new Map<string, (typeof groups)[number]>();
+  for (const m of text.matchAll(TITLE_MENTION)) {
+    const surname = fold(m[2]);
+    const start = m.index;
+    const end = start + m[0].length;
+    if (STOP.has(surname) || PLACE_BEFORE.has(surname) || byFirst.has(surname)) continue;
+    if (covered(end - m[2].length, end)) continue;
+    const mention: Candidate = { kind: "PESSOA", text: m[0].replace(/\s+/g, " "), start, end, key: [surname] };
+    const owners = people.filter((g) => g.key.slice(1).includes(surname));
+    if (owners.length === 1) {
+      owners[0].items.push(mention);
+      continue;
+    }
+    const id = `${fold(m[1])}:${surname}`;
+    const g = standalone.get(id) ?? { kind: "PESSOA" as const, key: [fold(m[1]), surname], items: [] };
+    g.items.push(mention);
+    standalone.set(id, g);
+  }
+  groups.push(...standalone.values());
+
   return groups
     .map((g) => {
       const variants = [...new Set(g.items.map((i) => i.text.replace(/\s+/g, " ")))].sort((a, b) => b.length - a.length);
       const display = variants.find((v) => /\p{Ll}/u.test(v) && fold(v).split(/\s+/).length >= g.key.length) ?? variants[0];
       const publicAgent =
         g.kind === "PESSOA" &&
-        g.items.some((i) => PUBLIC_AGENT_CONTEXT.test(text.slice(Math.max(0, i.start - 60), i.start)) || PUBLIC_AGENT_CONTEXT.test(text.slice(i.end, i.end + 60)));
+        g.items.some((i) => {
+          const { before, after } = contextAround(text, i.start, i.end);
+          return PUBLIC_AGENT_CONTEXT.test(before) || PUBLIC_AGENT_CONTEXT.test(after);
+        });
       return { kind: g.kind, name: display, variants, occurrences: g.items.length, publicAgent };
     })
     .sort((a, b) => (a.kind === b.kind ? b.occurrences - a.occurrences : a.kind === "PESSOA" ? -1 : 1));

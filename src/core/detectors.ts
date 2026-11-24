@@ -200,19 +200,33 @@ export function fold(s: string): string {
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Pronomes de tratamento: cada grupo reúne as formas equivalentes (com e sem ponto, por extenso).
+// Uma grafia que começa por um deles ("Sr. Almeida") casa com qualquer forma do mesmo grupo, e só o
+// que vem depois do pronome é marcado: o texto anonimizado fica "Sr. [PESSOA_2]".
+const TITLE_GROUPS: string[][] = [
+  ["sr", "senhor"],
+  ["sra", "senhora"],
+  ["dr", "doutor"],
+  ["dra", "doutora"],
+  ["srta", "senhorita"],
+];
+const titleGroupOf = (word: string) => TITLE_GROUPS.find((g) => g.includes(word.replace(/\.$/, "")));
+
 /**
  * Encontra as ocorrências de um nome declarado, ignorando maiúsculas, acentos
- * e quebras de linha/espaços múltiplos entre as palavras.
+ * e quebras de linha/espaços múltiplos entre as palavras. Se o termo começa por pronome de
+ * tratamento, o pronome é exigido no texto mas fica fora do trecho marcado.
  */
 export function findTerm(text: string, term: string, kind: Kind = "PESSOA"): Match[] {
   const words = fold(term).trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
-  const pattern = new RegExp(`(?<![\\p{L}\\d])${words.map(escapeRegex).join("\\s+")}(?![\\p{L}\\d])`, "gu");
+  const title = words.length > 1 ? titleGroupOf(words[0]) : undefined;
+  const rest = title ? words.slice(1) : words;
+  const titlePattern = title ? `(?:${title.map((t) => `${t}\\.?`).join("|")})\\s+` : "";
+  const pattern = new RegExp(`(?<![\\p{L}\\d])${titlePattern}(?<name>${rest.map(escapeRegex).join("\\s+")})(?![\\p{L}\\d])`, "gud");
   const folded = fold(text);
-  return Array.from(folded.matchAll(pattern), (m) => ({
-    kind,
-    text: text.slice(m.index, m.index + m[0].length),
-    start: m.index,
-    end: m.index + m[0].length,
-  }));
+  return Array.from(folded.matchAll(pattern), (m) => {
+    const [start, end] = m.indices!.groups!.name;
+    return { kind, text: text.slice(start, end), start, end };
+  });
 }
