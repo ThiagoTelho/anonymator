@@ -7,6 +7,8 @@ import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts"
 export interface Person {
   /** Grafias da mesma pessoa no documento (ex.: nome completo, "Sr. Almeida"). */
   variants: string[];
+  /** PESSOA (padrão) ou EMPRESA: define o marcador ([PESSOA_n] ou [EMPRESA_n]). */
+  kind?: "PESSOA" | "EMPRESA";
 }
 
 export interface AnonymizeOptions {
@@ -122,15 +124,16 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     // 1. Localizar: pessoas declaradas primeiro, depois os padrões, sem sobreposição.
     const matches: { m: Match; key: string }[] = [];
     const taken = (s: number, e: number) => matches.some(({ m }) => s < m.end && e > m.start);
-    options.people.forEach((person, idx) => {
-      // Variantes mais longas primeiro, para "João Pedro Almeida" ganhar de "Almeida".
-      const variants = [...person.variants].sort((a, b) => b.length - a.length);
-      for (const v of variants) {
-        for (const m of findTerm(text, v)) {
-          if (!taken(m.start, m.end)) matches.push({ m, key: `PESSOA:#${idx}` });
-        }
+    // Variantes mais longas primeiro, entre todas as pessoas: "Maria da Silva" (pessoa 2)
+    // ganha de "Maria" (pessoa 1) no mesmo trecho.
+    const variants = options.people
+      .flatMap((person, idx) => person.variants.map((v) => ({ v, idx, kind: person.kind ?? "PESSOA" })))
+      .sort((a, b) => b.v.length - a.v.length);
+    for (const { v, idx, kind } of variants) {
+      for (const m of findTerm(text, v, kind)) {
+        if (!taken(m.start, m.end)) matches.push({ m, key: `${kind}:#${idx}` });
       }
-    });
+    }
     if (options.detectPatterns !== false) {
       for (const m of detectPatterns(text)) {
         if (!taken(m.start, m.end)) matches.push({ m, key: entityKey(m) });

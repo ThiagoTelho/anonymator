@@ -3,31 +3,58 @@
 // Para adicionar um caso: coloque `fixtures/<nome>.pdf` (só dados inventados!) e `fixtures/<nome>.json`:
 //   {
 //     "description": "o que este PDF representa",
-//     "people":     [{ "variants": ["Nome Completo", "Sr. Sobrenome"] }],   // o que o usuário declararia
+//     "suggest": true,              // usar as sugestões automáticas (todas, inclusive agentes públicos)
+//     "people": [{ "variants": ["Nome Completo", "Sr. Sobrenome"] }],   // nomes declarados à mão
+//     "expectedSuggestions": {      // lista EXATA esperada: pega nomes perdidos e falsos positivos
+//       "people": ["..."], "publicAgents": ["..."], "companies": ["..."]
+//     },
 //     "mustRemove": ["dados que NÃO podem aparecer no PDF anonimizado"],
-//     "mustKeep":   ["trechos que DEVEM continuar no PDF (evita apagar demais)"]
+//     "mustKeep":   ["trechos que DEVEM continuar no PDF (evita apagar demais)"],
+//     "knownGaps":  ["dados que ainda vazam, conhecidos; o teste avisa quando passarem a ser removidos"]
 //   }
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { anonymizePdf, type Person } from "../src/core/anonymize.ts";
 import { extractText, findLeaks } from "../src/core/leaks.ts";
+import { suggestEntities } from "../src/core/names.ts";
+import { FIRST_NAMES } from "./helpers/names.ts";
 import { norm, openPdf } from "./helpers/pdf.ts";
 
 interface FixtureSpec {
   description?: string;
-  people: Person[];
+  suggest?: boolean;
+  people?: Person[];
+  expectedSuggestions?: { people?: string[]; publicAgents?: string[]; companies?: string[] };
   mustRemove?: string[];
   mustKeep?: string[];
+  knownGaps?: string[];
 }
 
 const DIR = join(import.meta.dirname, "..", "fixtures");
 const pdfs = readdirSync(DIR).filter((f) => f.toLowerCase().endsWith(".pdf"));
+const sorted = (xs: string[]) => [...xs].sort((a, b) => a.localeCompare(b));
 
 describe.each(pdfs)("fixture %s", (file) => {
   const spec: FixtureSpec = JSON.parse(readFileSync(join(DIR, file.replace(/\.pdf$/i, ".json")), "utf8"));
-  const result = anonymizePdf(readFileSync(join(DIR, file)), { people: spec.people });
+  const input = readFileSync(join(DIR, file));
+  const suggestions = spec.suggest ? suggestEntities(extractText(input), FIRST_NAMES) : [];
+  const people: Person[] = [...suggestions.map((s) => ({ variants: s.variants, kind: s.kind })), ...(spec.people ?? [])];
+  const result = anonymizePdf(input, { people });
   const text = norm(extractText(result.pdf));
+
+  if (spec.expectedSuggestions) {
+    const exp = spec.expectedSuggestions;
+    it("sugere exatamente as pessoas esperadas", () => {
+      expect(sorted(suggestions.filter((s) => s.kind === "PESSOA").map((s) => s.name))).toEqual(sorted(exp.people ?? []));
+    });
+    it("marca exatamente os agentes públicos esperados", () => {
+      expect(sorted(suggestions.filter((s) => s.publicAgent).map((s) => s.name))).toEqual(sorted(exp.publicAgents ?? []));
+    });
+    it("sugere exatamente as empresas esperadas", () => {
+      expect(sorted(suggestions.filter((s) => s.kind === "EMPRESA").map((s) => s.name))).toEqual(sorted(exp.companies ?? []));
+    });
+  }
 
   it("não deixa nenhum dado substituído legível no PDF", () => {
     expect(findLeaks(result.pdf, result.replacements)).toEqual([]);
@@ -42,12 +69,18 @@ describe.each(pdfs)("fixture %s", (file) => {
     expect(text).toContain(norm(value));
   });
 
-  it("gera um PDF válido com o mesmo número de páginas", () => {
-    expect(openPdf(result.pdf).countPages()).toBe(openPdf(readFileSync(join(DIR, file))).countPages());
+  // Lacunas conhecidas: o teste "falha de propósito". Quando o dado passar a ser removido, ele fica
+  // vermelho, avisando para mover o item de knownGaps para mustRemove.
+  it.fails.each(spec.knownGaps ?? [])("lacuna conhecida: %s ainda não é removido", (value) => {
+    expect(text).not.toContain(norm(value));
   });
 
-  it("encontra todas as pessoas declaradas", () => {
-    const found = result.replacements.filter((r) => r.kind === "PESSOA").length;
-    expect(found).toBe(spec.people.length);
+  it("gera um PDF válido com o mesmo número de páginas", () => {
+    expect(openPdf(result.pdf).countPages()).toBe(openPdf(input).countPages());
+  });
+
+  it("encontra no documento todas as pessoas e empresas usadas", () => {
+    const found = result.replacements.filter((r) => r.kind === "PESSOA" || r.kind === "EMPRESA").length;
+    expect(found).toBe(people.length);
   });
 });

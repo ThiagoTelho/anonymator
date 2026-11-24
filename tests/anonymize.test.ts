@@ -79,6 +79,22 @@ describe("anonymizePdf — marcadores consistentes", () => {
   });
 });
 
+describe("anonymizePdf — empresas e prioridade entre pessoas", () => {
+  it("usa marcador de empresa para entidades do tipo EMPRESA", () => {
+    const result = anonymizePdf(makePdf(["<p>Contrato com Construtora Horizonte Ltda.</p>"]), {
+      people: [{ variants: ["Construtora Horizonte Ltda."], kind: "EMPRESA" }],
+    });
+    expect(result.text).toContain("[EMPRESA_1]");
+    expect(norm(extractText(result.pdf))).not.toContain("horizonte");
+  });
+
+  it("dá prioridade à variante mais longa mesmo entre pessoas diferentes", () => {
+    const result = run(["<p>Maria da Silva e Maria conversaram.</p>"], [["Maria"], ["Maria da Silva"]]);
+    expect(placeholderOf(result, "Maria da Silva")).toBeDefined();
+    expect(result.replacements.find((r) => r.originals.includes("Maria"))?.occurrences).toBe(1);
+  });
+});
+
 describe("anonymizePdf — opções", () => {
   it("não detecta padrões quando detectPatterns é false", () => {
     const result = run(["<p>CPF 111.444.777-35 de Ana Souza.</p>"], [["Ana Souza"]], false);

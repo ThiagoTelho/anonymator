@@ -38,7 +38,10 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 
 | Caminho | Conteúdo |
 |---|---|
-| `src/core/detectors.ts` | Detectores determinísticos (CPF e CNPJ com dígito verificador, e-mail, telefone, CEP, OAB, nº CNJ) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
+| `src/core/detectors.ts` | Detectores determinísticos (CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
+| `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias e marcação de agentes públicos |
+| `src/core/people.ts` | Junta as sugestões marcadas pelo usuário e os nomes digitados à mão |
+| `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
 | `src/core/anonymize.ts` | Motor de anonimização sobre o MuPDF: localização, remoção, marcadores e limpeza do arquivo |
 | `src/worker.ts` | Web Worker que executa o motor fora da thread da interface |
 | `src/App.tsx` | Interface (React + Tailwind) |
@@ -79,8 +82,11 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
 - **Detectores** (`tests/detectors.test.ts`): validação de CPF/CNPJ, padrões, busca de nomes.
 - **Motor** (`tests/anonymize.test.ts`): gera PDFs fictícios em memória e confere remoção real,
   preservação do texto ao redor, marcadores consistentes, opções e limpeza de metadados e anexos.
+- **Sugestão de nomes** (`tests/names.test.ts`): pessoas, empresas, agentes públicos e falsos positivos
+  (logradouros, leis, cabeçalhos).
 - **Fixtures** (`tests/fixtures.test.ts`): roda o motor em cada PDF de `fixtures/` e confere, pelo `.json`
-  ao lado, o que precisa sumir (`mustRemove`) e o que precisa ficar (`mustKeep`). Para cobrir um novo
+  ao lado, as sugestões exatas esperadas, o que precisa sumir (`mustRemove`), o que precisa ficar (`mustKeep`)
+  e as lacunas conhecidas (`knownGaps`, que avisam quando passarem a ser cobertas). Para cobrir um novo
   tipo de documento, basta adicionar o par `.pdf` + `.json`.
 - **Interface**: testes end-to-end (Playwright, contra o build com CSP) entram junto com a tela de revisão.
 
@@ -89,8 +95,9 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
 ## Limitações conhecidas
 
 - PDFs escaneados (sem camada de texto) não são suportados.
-- A detecção de nomes depende da lista declarada pelo usuário; a sugestão automática de nomes ainda não existe.
-- Endereços ainda não são detectados automaticamente.
+- A sugestão de nomes depende da lista de primeiros nomes do Censo 2010: nomes muito raros ou de pessoas
+  nascidas depois de 2010 podem não ser sugeridos. Por isso o usuário sempre revisa e pode acrescentar nomes.
+- Endereços, números de protocolo, ordens de serviço e autos de infração ainda não são detectados.
 - Revise sempre o resultado: nenhuma ferramenta automática garante a remoção de 100% dos dados pessoais.
   Dados indiretos (datas, profissão, local de trabalho, fatos muito específicos) também podem identificar alguém.
 

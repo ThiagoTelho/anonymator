@@ -89,3 +89,45 @@ describe("findTerm", () => {
     expect(findTerm("qualquer texto", "   ")).toEqual([]);
   });
 });
+
+describe("detectPatterns — documentos do MPT e trabalhistas", () => {
+  it("reconhece a numeração do MPU/MPT", () => {
+    expect(kinds("Inquérito Civil nº 001873.2025.18.000/8")).toEqual([["PROCESSO", "001873.2025.18.000/8"]]);
+  });
+
+  it("reconhece PIS/PASEP formatado com dígito válido e recusa dígito errado", () => {
+    expect(kinds("PIS 122.21974.65-6")).toEqual([["PIS", "122.21974.65-6"]]);
+    expect(kinds("PIS 122.21974.65-7")).toEqual([]);
+  });
+
+  it("reconhece PIS sem pontuação só com o rótulo", () => {
+    expect(kinds("PIS/PASEP: 12221974656")).toEqual([["PIS", "12221974656"]]);
+  });
+
+  it("reconhece CTPS com série", () => {
+    expect(kinds("CTPS\n7579208 série 236-GO")).toEqual([["CTPS", "7579208 série 236-GO"]]);
+  });
+
+  it("reconhece data de nascimento só com contexto, mantendo outras datas", () => {
+    expect(kinds("Data de nascimento\n14/07/1991; admitido em 03/02/2022")).toEqual([["NASCIMENTO", "14/07/1991"]]);
+    expect(kinds("nascida em 02/09/1985")).toEqual([["NASCIMENTO", "02/09/1985"]]);
+  });
+
+  it("reconhece CIF e matrícula", () => {
+    expect(kinds("Auditor-Fiscal do Trabalho – CIF 15233-0")).toEqual([["REGISTRO", "15233-0"]]);
+    expect(kinds("Servidor: Fulano, matrícula 91548.")).toEqual([["REGISTRO", "91548"]]);
+  });
+
+  it("reconhece códigos de verificação de documentos, inclusive na linha seguinte", () => {
+    expect(kinds("Código de verificação:\n4MAV3HVE (fictício)")).toEqual([["CODIGO", "4MAV3HVE"]]);
+    expect(kinds("código de autenticidade 1A2B3C4D")).toEqual([["CODIGO", "1A2B3C4D"]]);
+  });
+
+  it("reconhece código de rastreio dos Correios", () => {
+    expect(kinds("AR nº BR328161340BR")).toEqual([["RASTREIO", "BR328161340BR"]]);
+  });
+
+  it("não marca números de normas, portarias e valores", () => {
+    expect(kinds("Portaria nº 412/2025, NR-12, Lei nº 7.347/1985, R$ 16.840,66, OS 51371842/2025")).toEqual([]);
+  });
+});

@@ -8,8 +8,15 @@ export type Kind =
   | "EMAIL"
   | "TELEFONE"
   | "CEP"
+  | "EMPRESA"
   | "OAB"
-  | "PROCESSO";
+  | "PROCESSO"
+  | "PIS"
+  | "CTPS"
+  | "NASCIMENTO"
+  | "REGISTRO"
+  | "CODIGO"
+  | "RASTREIO";
 
 export interface Match {
   kind: Kind;
@@ -50,15 +57,45 @@ export function isValidCnpj(value: string): boolean {
   return digit(12) === Number(d[12]) && digit(13) === Number(d[13]);
 }
 
+/** Valida o dígito verificador de um PIS/PASEP/NIT. */
+export function isValidPis(value: string): boolean {
+  const d = onlyDigits(value);
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const weights = [3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((acc, w, i) => acc + w * Number(d[i]), 0);
+  const r = 11 - (sum % 11);
+  return (r >= 10 ? 0 : r) === Number(d[10]);
+}
+
 interface Rule {
   kind: Kind;
   pattern: RegExp;
   validate?: (text: string) => boolean;
 }
 
+// Rótulos que antecedem o dado (lookbehind): só o valor é marcado, o rótulo fica.
+const LABEL_SEP = String.raw`\s*(?:n[º°o.]\s*)?:?\s*`;
+
 // Ordem importa: regras mais específicas primeiro (o nº CNJ contém sequências que parecem telefone).
 const RULES: Rule[] = [
+  // Número único CNJ (Judiciário) e numeração do MPU/MPT (ex.: 001873.2025.18.000/8).
   { kind: "PROCESSO", pattern: /\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/g },
+  { kind: "PROCESSO", pattern: /\b\d{6}\.\d{4}\.\d{2}\.\d{3}\/\d\b/g },
+  { kind: "PIS", pattern: /\b\d{3}\.\d{5}\.\d{2}-\d\b/g, validate: isValidPis },
+  { kind: "PIS", pattern: new RegExp(String.raw`(?<=\b(?:PIS|PASEP|NIT|PIS\/PASEP)${LABEL_SEP})\d{11}\b`, "g"), validate: isValidPis },
+  { kind: "CTPS", pattern: new RegExp(String.raw`(?<=\bCTPS${LABEL_SEP})\d{4,8}(?:\s*s[ée]rie\s*\d{3,5}(?:-[A-Z]{2})?)?`, "gi") },
+  {
+    kind: "NASCIMENTO",
+    pattern: new RegExp(String.raw`(?<=\b(?:data\s+de\s+nascimento|nascid[oa]\s+em|nasc\.)${LABEL_SEP})\d{1,2}\/\d{1,2}\/\d{2,4}`, "gi"),
+  },
+  // Identificação funcional: CIF (auditor-fiscal), matrícula de servidor.
+  { kind: "REGISTRO", pattern: new RegExp(String.raw`(?<=\b(?:CIF|matr[ií]cula)${LABEL_SEP})\d[\d.]*(?:-\d)?\b`, "gi") },
+  // Códigos que permitem consultar o documento original em sistemas públicos.
+  {
+    kind: "CODIGO",
+    pattern: new RegExp(String.raw`(?<=\bc[óo]digo\s+(?:de\s+)?(?:verifica[çc][ãa]o|autenticidade|valida[çc][ãa]o)${LABEL_SEP})[A-Z0-9][A-Z0-9.-]{5,}`, "gi"),
+  },
+  { kind: "RASTREIO", pattern: /\b[A-Z]{2}\d{9}BR\b/g },
   { kind: "CNPJ", pattern: /\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, validate: isValidCnpj },
   { kind: "CPF", pattern: /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, validate: isValidCpf },
   { kind: "EMAIL", pattern: /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g },
