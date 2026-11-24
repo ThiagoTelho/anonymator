@@ -6,6 +6,9 @@
 
 import * as mupdf from "mupdf";
 
+/** Recebe (páginas concluídas, total de páginas) a cada página processada. */
+export type OnProgress = (done: number, total: number) => void;
+
 export class PdfPasswordError extends Error {
   /** true quando uma senha foi informada e está errada. */
   readonly wrong: boolean;
@@ -118,13 +121,14 @@ function hasSignature(doc: mupdf.PDFDocument): boolean {
   return found;
 }
 
-export function diagnoseDocument(doc: mupdf.PDFDocument): Diagnosis {
+export function diagnoseDocument(doc: mupdf.PDFDocument, onProgress?: OnProgress): Diagnosis {
   const byKind = new Map<WarningKind, number[]>();
   const pages = doc.countPages();
   for (let i = 0; i < pages; i++) {
     const status = classifyPage(pageStats(doc.loadPage(i)));
     const kind: WarningKind | null = status === "sem-texto" ? "SEM_TEXTO" : status === "ilegivel" ? "ILEGIVEL" : status === "imagem" ? "IMAGEM" : null;
     if (kind) byKind.set(kind, [...(byKind.get(kind) ?? []), i + 1]);
+    onProgress?.(i + 1, pages);
   }
   const warnings: Warning[] = [];
   for (const kind of ["SEM_TEXTO", "ILEGIVEL", "IMAGEM"] as const) {
@@ -135,6 +139,6 @@ export function diagnoseDocument(doc: mupdf.PDFDocument): Diagnosis {
   return { pages, warnings };
 }
 
-export function diagnosePdf(input: Uint8Array, password?: string): Diagnosis {
-  return diagnoseDocument(openPdf(input, password));
+export function diagnosePdf(input: Uint8Array, password?: string, onProgress?: OnProgress): Diagnosis {
+  return diagnoseDocument(openPdf(input, password), onProgress);
 }

@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
-import type { AnonymizeResult } from "./core/anonymize.ts";
+import type { AnonymizeResult, Replacement } from "./core/anonymize.ts";
 import type { Diagnosis, Warning } from "./core/diagnose.ts";
 import type { Leak } from "./core/leaks.ts";
 import type { Suggestion } from "./core/names.ts";
 import { buildPeople, defaultSelection } from "./core/people.ts";
+import { parseCorrespondence, restoreText } from "./core/restore.ts";
 import { summarize } from "./core/summary.ts";
-import type { WorkerRequest, WorkerResponse } from "./worker.ts";
+import type { Phase, WorkerProgress, WorkerRequest, WorkerResponse } from "./worker.ts";
 
 function download(data: BlobPart, name: string, type: string) {
   const url = URL.createObjectURL(new Blob([data], { type }));
@@ -16,20 +17,64 @@ function download(data: BlobPart, name: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Envia um pedido a um worker novo e devolve a resposta. */
-function callWorker(req: WorkerRequest, transfer: Transferable[]): Promise<WorkerResponse> {
-  return new Promise((resolve) => {
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      resolve(e.data);
+/** Pedido em andamento: a resposta e uma forma de cancelar (encerra o worker). */
+interface Job {
+  done: Promise<WorkerResponse | null>;
+  cancel: () => void;
+}
+
+/** Envia um pedido a um worker novo; `onProgress` recebe o avanço por página. Cancelado, resolve com null. */
+function startWorker(req: WorkerRequest, transfer: Transferable[], onProgress: (p: WorkerProgress) => void): Job {
+  const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+  let finish: (r: WorkerResponse | null) => void = () => {};
+  const done = new Promise<WorkerResponse | null>((resolve) => (finish = resolve));
+  worker.onmessage = (e: MessageEvent<WorkerResponse | WorkerProgress>) => {
+    if ("progress" in e.data) return onProgress(e.data);
+    finish(e.data);
+    worker.terminate();
+  };
+  worker.onerror = (e) => {
+    finish({ ok: false, code: "ERRO", error: e.message || "Falha ao processar o PDF." });
+    worker.terminate();
+  };
+  worker.postMessage(req, transfer);
+  return {
+    done,
+    cancel: () => {
       worker.terminate();
-    };
-    worker.onerror = (e) => {
-      resolve({ ok: false, code: "ERRO", error: e.message || "Falha ao processar o PDF." });
-      worker.terminate();
-    };
-    worker.postMessage(req, transfer);
-  });
+      finish(null);
+    },
+  };
+}
+
+const PHASE_LABELS: Record<Phase, string> = {
+  carregando: "Preparando",
+  diagnostico: "Verificando as páginas",
+  leitura: "Procurando nomes",
+  anonimizacao: "Anonimizando",
+  verificacao: "Conferindo o resultado",
+};
+
+function ProgressBar({ progress, onCancel }: { progress: WorkerProgress | null; onCancel: () => void }) {
+  const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const label = progress ? PHASE_LABELS[progress.phase] : "Preparando";
+  const pages = progress && progress.total > 1 ? ` — página ${progress.done} de ${progress.total}` : "";
+  return (
+    <div className="mt-3 flex items-center gap-3" role="status" aria-label="Progresso">
+      <div className="flex-1">
+        <div className="text-xs text-slate-600">
+          {label}
+          {pages}…
+        </div>
+        <div className="mt-1 h-2 overflow-hidden rounded bg-slate-200">
+          <div className="h-full bg-slate-900 transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <button onClick={onCancel} className="rounded-md border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100">
+        Cancelar
+      </button>
+    </div>
+  );
 }
 
 type Status =
@@ -61,6 +106,79 @@ function Warnings({ warnings }: { warnings: Warning[] }) {
   );
 }
 
+/** Devolve os dados reais à resposta da IA, usando a tabela de correspondência (tudo local). */
+function RestorePanel({ current }: { current: Replacement[] | null }) {
+  const [aiText, setAiText] = useState("");
+  const [loaded, setLoaded] = useState<Replacement[] | null>(null);
+  const [error, setError] = useState("");
+  const table = loaded ?? current;
+  const result = table && aiText ? restoreText(aiText, table) : null;
+
+  return (
+    <section className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm" aria-label="Restaurar">
+      <h2 className="text-lg font-semibold">Restaurar os nomes na resposta da IA</h2>
+      <p className="text-sm text-slate-600">
+        Cole a resposta da IA. Os marcadores ([PESSOA_1], [CPF_2]…) voltam a ser os dados reais, usando a tabela de
+        correspondência. Também acontece só no seu navegador.
+      </p>
+      <div className="text-sm">
+        {current && !loaded && <p className="text-slate-600">Usando a tabela do documento anonimizado acima.</p>}
+        <label className="mt-1 block text-slate-600" htmlFor="tabela">
+          {current ? "Ou carregue outra tabela (.json):" : "Carregue a tabela de correspondência (.json) baixada do app:"}
+        </label>
+        <input
+          id="tabela"
+          type="file"
+          accept="application/json,.json"
+          className="mt-1 block text-sm"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            try {
+              setLoaded(parseCorrespondence(await f.text()));
+              setError("");
+            } catch (err) {
+              setLoaded(null);
+              setError(err instanceof Error ? err.message : String(err));
+            }
+          }}
+        />
+        {error && <p className="mt-1 text-red-700">{error}</p>}
+      </div>
+      <textarea
+        aria-label="Resposta da IA"
+        rows={5}
+        value={aiText}
+        onChange={(e) => setAiText(e.target.value)}
+        placeholder="Cole aqui o texto com marcadores…"
+        className="w-full rounded-md border border-slate-300 p-2 text-sm focus:border-slate-500 focus:outline-none"
+      />
+      {aiText && !table && <p className="text-sm text-amber-800">Carregue a tabela de correspondência para restaurar.</p>}
+      {result && (
+        <>
+          <p className="text-xs text-slate-500" data-testid="restaurados">
+            {result.restored} {result.restored === 1 ? "marcador restaurado" : "marcadores restaurados"}
+            {result.unknown.length > 0 && ` · não estão na tabela: ${result.unknown.join(", ")}`}
+          </p>
+          <textarea
+            aria-label="Texto restaurado"
+            readOnly
+            rows={5}
+            value={result.text}
+            className="w-full rounded-md border border-slate-300 bg-slate-50 p-2 text-sm"
+          />
+          <button
+            onClick={() => void navigator.clipboard.writeText(result.text)}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
+          >
+            Copiar texto restaurado
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function App() {
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
@@ -71,6 +189,24 @@ export default function App() {
   const [detect, setDetect] = useState(true);
   const [status, setStatus] = useState<Status>({ state: "idle" });
   const fileVersion = useRef(0);
+  const job = useRef<Job | null>(null);
+  const [progress, setProgress] = useState<WorkerProgress | null>(null);
+
+  function start(req: WorkerRequest, transfer: Transferable[]) {
+    job.current?.cancel();
+    setProgress(null);
+    const j = startWorker(req, transfer, setProgress);
+    job.current = j;
+    return j.done;
+  }
+
+  function cancel() {
+    job.current?.cancel();
+    job.current = null;
+    setProgress(null);
+    // Cancelar a leitura volta ao início; cancelar a anonimização volta para a revisão.
+    setStatus(diagnosis ? { state: "ready" } : { state: "idle" });
+  }
 
   const baseName = file?.name.replace(/\.pdf$/i, "") ?? "documento";
 
@@ -78,8 +214,8 @@ export default function App() {
     const version = ++fileVersion.current;
     setStatus({ state: "analyzing" });
     const pdf = await f.arrayBuffer();
-    const res = await callWorker({ type: "analyze", pdf, password: pw }, [pdf]);
-    if (version !== fileVersion.current) return;
+    const res = await start({ type: "analyze", pdf, password: pw }, [pdf]);
+    if (res === null || version !== fileVersion.current) return;
     if (!res.ok) {
       if (res.code === "SENHA_NECESSARIA" || res.code === "SENHA_INCORRETA") return setStatus({ state: "password", wrong: res.code === "SENHA_INCORRETA" });
       return setStatus({ state: "error", message: res.error });
@@ -107,7 +243,8 @@ export default function App() {
     setStatus({ state: "working" });
     const pdf = await file.arrayBuffer();
     const options = { people: buildPeople(suggestions, selected, manual), detectPatterns: detect, password: password || undefined };
-    const res = await callWorker({ type: "anonymize", pdf, options }, [pdf]);
+    const res = await start({ type: "anonymize", pdf, options }, [pdf]);
+    if (res === null) return;
     if (!res.ok) setStatus({ state: "error", message: res.error });
     else if (res.type === "anonymize") setStatus({ state: "done", result: res.result, leaks: res.leaks });
   }
@@ -182,7 +319,7 @@ export default function App() {
 
           <div>
             <h2 className="text-sm font-semibold">2. Revise as pessoas e empresas encontradas</h2>
-            {status.state === "analyzing" && <p className="mt-2 text-sm text-slate-500">Lendo o documento…</p>}
+            {status.state === "analyzing" && <ProgressBar progress={progress} onCancel={cancel} />}
             {diagnosis && suggestions.length === 0 && (
               <p className="mt-2 text-sm text-slate-500">Nenhum nome encontrado automaticamente. Declare-os abaixo.</p>
             )}
@@ -257,6 +394,7 @@ export default function App() {
           >
             {status.state === "working" ? "Processando…" : "Anonimizar"}
           </button>
+          {status.state === "working" && <ProgressBar progress={progress} onCancel={cancel} />}
         </section>
 
         {status.state === "error" && (
@@ -357,6 +495,8 @@ export default function App() {
             </details>
           </section>
         )}
+
+        <RestorePanel current={status.state === "done" ? status.result.replacements : null} />
 
         <footer className="mt-10 text-xs text-slate-500">
           Revise sempre o resultado: a detecção automática não garante a remoção de todos os dados pessoais.

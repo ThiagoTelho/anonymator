@@ -4,7 +4,7 @@
 import * as mupdf from "mupdf";
 import { detectPatterns, findTerm, type Kind, type Match } from "./detectors.ts";
 import { fitLabel, shortLabel } from "./labels.ts";
-import { openPdf } from "./diagnose.ts";
+import { openPdf, type OnProgress } from "./diagnose.ts";
 import { readPage, type Char } from "./text.ts";
 
 export interface Person {
@@ -21,6 +21,8 @@ export interface AnonymizeOptions {
   detectPatterns?: boolean;
   /** Senha de abertura, se o PDF for protegido. O PDF anonimizado sai sem senha. */
   password?: string;
+  /** Chamado a cada página anonimizada (não atravessa o worker: a interface passa via mensagens). */
+  onProgress?: OnProgress;
 }
 
 export interface Replacement {
@@ -107,7 +109,9 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
 
   const pageTexts: string[] = [];
 
-  for (let p = 0; p < doc.countPages(); p++) {
+  const totalPages = doc.countPages();
+  for (let p = 0; p < totalPages; p++) {
+    if (p > 0) options.onProgress?.(p, totalPages);
     const page = doc.loadPage(p);
     const { text, chars } = readPage(page);
 
@@ -197,6 +201,8 @@ export function anonymizePdf(input: Uint8Array, options: AnonymizeOptions): Anon
     contents.push(doc.addStream("Q\n" + ops, {}));
     pageObj.put("Contents", contents);
   }
+  // Cada página é informada ao começar a seguinte (o laço tem `continue`); a última, aqui.
+  if (totalPages > 0) options.onProgress?.(totalPages, totalPages);
 
   if (usedShort.size > 0) addLegendPage(doc, fontRef, usedShort);
 

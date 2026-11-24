@@ -16,10 +16,11 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
   `.gitignore` e nunca deve ir para o remoto, nem valores copiados dele para testes commitados): `node scripts/eval-dataset.ts <pasta> --misses`
   mostra a remoção por categoria e cada vazamento com contexto; `tests/dataset.test.ts` exige 100% e zero
   apagamento em excesso. Novos conjuntos de outros órgãos devem seguir o mesmo caminho.
-- **Interface**: testes end-to-end com Playwright contra o build de produção (com a CSP ativa) são requisito
-  da primeira versão de teste (ver `ROADMAP.md`, Sprint 2): fluxos principais e "nenhuma requisição fora da
-  origem". Componentes com lógica própria ganham testes com Testing Library.
-- Antes de commitar: `pnpm test`, `pnpm lint` e `pnpm build` (o build também roda os testes).
+- **Interface**: toda mudança de tela vem com teste em `e2e/app.spec.ts` (Playwright, contra o build de produção
+  com a CSP). O teste de privacidade (nenhuma requisição fora da origem e nenhuma violação de CSP) nunca pode ser
+  afrouxado. Lógica de tela que puder ser pura vai para `src/core/` e ganha teste Vitest.
+- Antes de commitar: `pnpm test`, `pnpm lint`, `pnpm build` (o build também roda os testes) e, se a interface
+  mudou, `pnpm test:e2e`.
 - Ao mudar algo que um teste cobre, atualize o teste junto. Nunca apague ou enfraqueça um teste para fazê-lo passar
   sem explicar o motivo no commit.
 
@@ -47,6 +48,7 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 | `pnpm dev` | Servidor de desenvolvimento (sem CSP) |
 | `pnpm test` | Testes (Vitest) |
 | `pnpm test:watch` | Testes em modo observação |
+| `pnpm test:e2e` | Testes de interface (Playwright) contra o build de produção |
 | `pnpm lint` | Oxlint |
 | `pnpm build` | Type-check + testes + build de produção (com CSP) |
 | `pnpm fixture` | Regera os PDFs de `fixtures/` a partir de `fixtures/src/*.html` |

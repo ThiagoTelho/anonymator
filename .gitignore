@@ -31,3 +31,8 @@ ROADMAP.md
 
 # Conjunto de processos fictícios do autor: fica só na máquina local, nunca no remoto
 fixtures/layouts-mpt/
+
+# Playwright
+e2e/.tmp/
+test-results/
+playwright-report/

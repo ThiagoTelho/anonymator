@@ -7,7 +7,7 @@ das partes para fora da própria máquina.
 O resultado é um PDF com o mesmo layout do original, em que cada dado pessoal foi **removido de verdade**
 do conteúdo da página e substituído por um marcador consistente (`[PESSOA_1]`, `[CPF_2]`…). Também são
 gerados o texto anonimizado (`.txt`) e uma tabela de correspondência marcador → dado original, que fica
-só com o usuário.
+só com o usuário — e com ela o app devolve os dados reais à resposta da IA, também localmente.
 
 > **Estado:** pré-lançamento. Ainda não há versão publicada. Todos os testes usam documentos fictícios.
 
@@ -69,6 +69,8 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/diagnose.ts` | Diagnóstico antes de anonimizar: páginas escaneadas, texto ilegível, imagens grandes, assinatura digital, senha |
 | `src/core/leaks.ts` | Verificação independente: reabre o PDF gerado e procura os dados originais (mostrada na tela como verificação final) |
 | `src/core/summary.ts` | Resumo do que foi removido, por tipo |
+| `src/core/restore.ts` | Reversão: devolve os dados reais a um texto com marcadores (a resposta da IA), com a tabela de correspondência |
+| `src/core/errors.ts` | Mensagens de erro claras (não é PDF, PDF danificado, senha, falta de memória) |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
 | `src/worker.ts` | Web Worker que executa análise e anonimização fora da thread da interface |
 | `src/App.tsx` | Interface (React + Tailwind) |
@@ -114,6 +116,7 @@ pnpm build
 | Comando | O que faz |
 |---|---|
 | `pnpm preview` | Serve o build de produção localmente |
+| `pnpm test:e2e` | Testes de interface (Playwright) contra o build de produção; na primeira vez: `pnpm exec playwright install chromium` |
 | `pnpm fixture` | Regera os PDFs de `fixtures/` |
 | `pnpm verify [fixture.pdf]` | Anonimiza uma fixture e grava a saída em `out/` |
 | `pnpm preview:fixture <nome> <página>` | Anonimiza como o usuário faria e grava PDF, texto e imagem em `out/` |
@@ -136,7 +139,10 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
 - **Variação de layout** (`tests/dataset.test.ts`, conjunto só local, pulado sem a pasta): 50 processos fictícios do MPT
   com fontes, papel, corpo, alinhamento, colunas, tabelas, formatos de data e moeda, máscaras e marca d'água variados.
   Hoje: 100% dos 2.625 dados pessoais removidos e nenhum dos 450 itens não pessoais conferidos apagado.
-- **Interface**: testes end-to-end com Playwright entram antes da primeira versão de teste.
+- **Interface** (`e2e/`, Playwright, contra o build de produção com a CSP): fluxo completo com sugestões,
+  desmarcação e PDF baixado conferido; nome digitado à mão; página escaneada; PDF com senha; arquivo que não é PDF;
+  progresso e cancelamento num processo grande; restauração da resposta da IA; e privacidade — CSP presente,
+  **nenhuma requisição fora da origem e nenhuma violação de CSP** durante todo o fluxo.
 
 **Nunca use processos reais em testes ou fixtures do repositório.** Só documentos fictícios, com dados inventados.
 
