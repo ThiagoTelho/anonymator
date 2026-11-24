@@ -38,7 +38,7 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 
 | Caminho | Conteúdo |
 |---|---|
-| `src/core/detectors.ts` | Detectores determinísticos (CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
+| `src/core/detectors.ts` | Detectores determinísticos (endereços, CPF, CNPJ e PIS com dígito verificador, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, nº CNJ e do MPU/MPT, CIF/matrícula, códigos de verificação, rastreio dos Correios) e busca de nomes ignorando maiúsculas, acentos e quebras de linha |
 | `src/core/names.ts` | Sugestão de pessoas (primeiro nome do IBGE + sobrenomes) e empresas (sufixo societário), com agrupamento de grafias e marcação de agentes públicos |
 | `src/core/people.ts` | Junta as sugestões marcadas pelo usuário e os nomes digitados à mão |
 | `src/data/first-names.txt` | Primeiros nomes do Censo 2010 do IBGE (veja `src/data/README.md`) |
@@ -97,7 +97,8 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
 - PDFs escaneados (sem camada de texto) não são suportados.
 - A sugestão de nomes depende da lista de primeiros nomes do Censo 2010: nomes muito raros ou de pessoas
   nascidas depois de 2010 podem não ser sugeridos. Por isso o usuário sempre revisa e pode acrescentar nomes.
-- Endereços, números de protocolo, ordens de serviço e autos de infração ainda não são detectados.
+- Endereços só são detectados a partir do tipo de logradouro (Rua, Av., Rodovia…) com número, complemento ou bairro;
+  a cidade/UF fica no texto. Números de protocolo, ordens de serviço e autos de infração ainda não são detectados.
 - Revise sempre o resultado: nenhuma ferramenta automática garante a remoção de 100% dos dados pessoais.
   Dados indiretos (datas, profissão, local de trabalho, fatos muito específicos) também podem identificar alguém.
 

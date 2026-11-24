@@ -171,8 +171,8 @@ export default function App() {
 
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={detect} onChange={(e) => setDetect(e.target.checked)} />
-            Detectar automaticamente CPF, CNPJ, PIS, CTPS, e-mail, telefone, CEP, OAB, data de nascimento, números de
-            processo e códigos de verificação
+            Detectar automaticamente endereços, CPF, CNPJ, PIS, CTPS, e-mail, telefone, CEP, OAB, data de nascimento,
+            números de processo e códigos de verificação
           </label>
 
           <button
@@ -238,8 +238,7 @@ export default function App() {
         )}
 
         <footer className="mt-10 text-xs text-slate-500">
-          Revise sempre o resultado: a detecção automática não garante a remoção de todos os dados pessoais. Endereços ainda não
-          são detectados.
+          Revise sempre o resultado: a detecção automática não garante a remoção de todos os dados pessoais.
         </footer>
       </div>
     </div>

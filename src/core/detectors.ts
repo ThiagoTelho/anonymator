@@ -16,7 +16,8 @@ export type Kind =
   | "NASCIMENTO"
   | "REGISTRO"
   | "CODIGO"
-  | "RASTREIO";
+  | "RASTREIO"
+  | "ENDERECO";
 
 export interface Match {
   kind: Kind;
@@ -106,7 +107,8 @@ const RULES: Rule[] = [
 
 /** Encontra dados de formato fixo. Trechos sobrepostos ficam com a primeira regra que os achou. */
 export function detectPatterns(text: string): Match[] {
-  const found: Match[] = [];
+  // Endereços primeiro: contêm números (lote, km, nº) que outras regras poderiam pegar pela metade.
+  const found: Match[] = detectAddresses(text);
   const overlaps = (s: number, e: number) => found.some((m) => s < m.end && e > m.start);
   for (const rule of RULES) {
     for (const m of text.matchAll(rule.pattern)) {
@@ -118,6 +120,76 @@ export function detectPatterns(text: string): Match[] {
     }
   }
   return found.sort((a, b) => a.start - b.start);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Endereços
+//
+// Um endereço começa num tipo de logradouro ("Rua", "Av.", "Rodovia"…) seguido do nome, e continua
+// por componentes separados por vírgula: número ("nº 123", "s/n"), complementos ("Qd. 21", "Lt. 9",
+// "Apto 1202", "km 14") e bairro ("Setor Bueno", "Jardim…", "Zona Rural", ou um nome logo antes da
+// cidade). Cidade/UF e CEP ficam de fora: a cidade sozinha raramente identifica alguém e o CEP tem
+// marcador próprio. Exige ao menos um componente, para não marcar "na Rua das Flores" em texto corrido.
+
+const STREET = /(?<![\p{L}\d])(rua|r\.|avenida|av\.|alameda|al\.|travessa|trav\.|tv\.|rodovia|rod\.|estrada|pra[çc]a|p[çc]a\.|largo|viela|beco|servid[ãa]o)(?=\s)/giu;
+const STREET_NAME = /^\s+(?:(?:d[aeo]s?|de)\s+)?[\p{Lu}\d][^,\n]*(?:\n(?!\s*\n)[^,\n]*)?/u;
+const ABBREV_BEFORE_DOT = /(?:^|\s)(jd|res|ed|av|qd|lt|bl|conj|apto?|n|nº|km|al|tv|rod|p[çc]a)$/iu;
+
+const isCityUf = (c: string) => /^[\p{L} '.-]+\s*(?:\/|-|–)\s*[A-Z]{2}$/u.test(c);
+const isCep = (c: string) => /^CEP\b/i.test(c) || /^\d{5}-?\d{3}$/.test(c) || /^\d{2}\.\d{3}-\d{3}$/.test(c);
+const isNumber = (c: string) => /^(?:n[º°o.]?\s*)?\d[\d.]*[A-Za-z]?$/u.test(c) || /^s\/?n[º°]?\.?$/i.test(c);
+const isComplement = (c: string) =>
+  /^(?:qd|quadra|lt|lote|apto?|apartamento|bloco|bl|casa|sala|conj|conjunto|km|andar|edif[ií]cio|ed|torre|ch[áa]cara|gleba|lj|loja|galp[ãa]o|box)\.?\s*[\w./-]+(?:\s+[\w./-]+)?$/iu.test(c);
+const isNeighborhood = (c: string) =>
+  c.length <= 50 && /^(?:setor|jardim|jd\.?|bairro|vila|residencial|res\.|parque|loteamento|zona rural|zona urbana|centro|distrito|n[úu]cleo|povoado)(?![\p{L}])/iu.test(c);
+const isGenericName = (c: string) => /^\p{Lu}[\p{L}'.-]*(?:\s+(?:d[aeo]s?|de|\p{Lu}[\p{L}'.-]*)){0,4}$/u.test(c);
+
+/** Corta o componente no fim da frase ("Centro. Depois…"), sem cortar abreviações ("Qd. 21", "Jd. América"). */
+function cutAtSentenceEnd(c: string): string {
+  for (const m of c.matchAll(/\.(?=\s+\p{Lu}|\s*$)/gu)) {
+    if (!ABBREV_BEFORE_DOT.test(c.slice(0, m.index))) return c.slice(0, m.index);
+  }
+  return c;
+}
+
+export function detectAddresses(text: string): Match[] {
+  const found: Match[] = [];
+  for (const s of text.matchAll(STREET)) {
+    const start = s.index;
+    if (found.some((m) => start < m.end)) continue;
+    const name = STREET_NAME.exec(text.slice(start + s[0].length));
+    if (!name || name[0].trim().length > 60) continue;
+    let end = start + s[0].length + cutAtSentenceEnd(name[0]).trimEnd().length;
+    if (cutAtSentenceEnd(name[0]) !== name[0]) continue; // a frase acabou no nome da rua: sem componentes
+
+    // Lê os componentes seguintes, separados por vírgula.
+    const comps: { text: string; end: number }[] = [];
+    let pos = start + s[0].length + name[0].length;
+    while (comps.length < 10) {
+      const sep = /^,[ \t]*/.exec(text.slice(pos));
+      if (!sep) break;
+      const from = pos + sep[0].length;
+      const raw = /^[^,;\n]*/.exec(text.slice(from))![0];
+      const cut = cutAtSentenceEnd(raw).trim();
+      comps.push({ text: cut, end: from + cut.length });
+      if (cut.length !== raw.trim().length) break; // fim de frase dentro do componente
+      pos = from + raw.length;
+    }
+
+    let included = 0;
+    for (let i = 0; i < comps.length; i++) {
+      const c = comps[i].text;
+      if (isCityUf(c) || isCep(c)) break;
+      const next = comps[i + 1]?.text ?? "";
+      const ok = isNumber(c) || isComplement(c) || isNeighborhood(c) || (isGenericName(c) && (isCityUf(next) || isCep(next)));
+      if (!ok) break;
+      end = comps[i].end;
+      included++;
+    }
+    if (included === 0) continue;
+    found.push({ kind: "ENDERECO", text: text.slice(start, end), start, end });
+  }
+  return found;
 }
 
 /** Remove acentos e passa para minúsculas, mantendo o mesmo comprimento do texto. */

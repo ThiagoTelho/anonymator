@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectPatterns, findTerm, fold, isValidCnpj, isValidCpf } from "../src/core/detectors.ts";
+import { detectAddresses, detectPatterns, findTerm, fold, isValidCnpj, isValidCpf } from "../src/core/detectors.ts";
 
 const kinds = (text: string) => detectPatterns(text).map((m) => [m.kind, m.text]);
 
@@ -129,5 +129,51 @@ describe("detectPatterns — documentos do MPT e trabalhistas", () => {
 
   it("não marca números de normas, portarias e valores", () => {
     expect(kinds("Portaria nº 412/2025, NR-12, Lei nº 7.347/1985, R$ 16.840,66, OS 51371842/2025")).toEqual([]);
+  });
+});
+
+describe("detectAddresses", () => {
+  const addr = (text: string) => detectAddresses(text).map((m) => m.text);
+
+  it("pega logradouro, número, quadra, lote e bairro, deixando cidade/UF e CEP de fora", () => {
+    expect(addr("Rua das Seriemas, Qd. 21, Lt. 9, Jardim Bela Aurora, Nerópolis/GO, CEP 75464-312")).toEqual([
+      "Rua das Seriemas, Qd. 21, Lt. 9, Jardim Bela Aurora",
+    ]);
+  });
+
+  it("pega rodovia com km, s/n e zona rural", () => {
+    expect(addr("com sede na Rodovia GO-080, km 14, s/n, Zona Rural, Nerópolis/GO, CEP 75460-000")).toEqual([
+      "Rodovia GO-080, km 14, s/n, Zona Rural",
+    ]);
+  });
+
+  it("pega endereço quebrado em linhas", () => {
+    expect(addr("residente na Rua das\nAcácias, nº 123, Setor Bueno, Goiânia/GO")).toEqual(["Rua das\nAcácias, nº 123, Setor Bueno"]);
+  });
+
+  it("pega abreviações, apartamento e bloco", () => {
+    expect(addr("Av. T-63, nº 1.500, Apto 1202, Bloco B, Setor Bueno, Goiânia - GO")).toEqual([
+      "Av. T-63, nº 1.500, Apto 1202, Bloco B, Setor Bueno",
+    ]);
+  });
+
+  it("inclui bairro sem palavra-chave quando vem antes da cidade", () => {
+    expect(addr("Avenida Paulista, 1000, conjunto 52, Bela Vista, São Paulo/SP")).toEqual(["Avenida Paulista, 1000, conjunto 52, Bela Vista"]);
+  });
+
+  it("aceita logradouro em minúsculas e termina no fim da frase", () => {
+    expect(addr("mora na rua 7, nº 45, Centro.")).toEqual(["rua 7, nº 45, Centro"]);
+  });
+
+  it("não marca 'rua' em texto corrido nem logradouro sem número ou complemento", () => {
+    expect(addr("a rua estava interditada e a avenida também")).toEqual([]);
+    expect(addr("o acidente ocorreu na Rua das Flores, segundo o boletim")).toEqual([]);
+  });
+
+  it("é usado por detectPatterns com o tipo ENDERECO, sem engolir o CEP", () => {
+    expect(kinds("Rua 7, nº 45, Centro, Goiânia/GO, CEP 74230-010")).toEqual([
+      ["ENDERECO", "Rua 7, nº 45, Centro"],
+      ["CEP", "74230-010"],
+    ]);
   });
 });
