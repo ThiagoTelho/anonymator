@@ -1,6 +1,6 @@
 # Anonimador
 
-> https://thiagotelho.github.io/anonymator/ (domínio anonimador.com.br em breve) · repositório `anonymator`
+> https://anonimador.com.br · repositório `anonymator`
 
 Aplicação web que anonimiza dados pessoais de PDFs de processos (judiciais e do Ministério Público)
 **inteiramente no navegador**, para que advogados possam usar ferramentas de IA sem enviar dados pessoais
@@ -11,7 +11,7 @@ do conteúdo da página e substituído por um marcador consistente (`[PESSOA_1]`
 gerados o texto anonimizado (`.txt`) e uma tabela de correspondência marcador → dado original, que fica
 só com o usuário — e com ela o app devolve os dados reais à resposta da IA, também localmente.
 
-> **Estado:** v0.1.0 (beta fechado) publicada em https://thiagotelho.github.io/anonymator/. Todos os testes usam documentos fictícios.
+> **Estado:** v0.1.0 (beta fechado) publicada em https://anonimador.com.br. Todos os testes usam documentos fictícios.
 
 ## O que é removido
 
@@ -172,18 +172,16 @@ Todo avanço do projeto vem acompanhado de testes, no mesmo commit (regra comple
 
 O site é publicado no GitHub Pages pelo workflow `.github/workflows/deploy.yml`, **só quando uma versão é marcada**
 (`git tag vX.Y.Z` + push da tag). Antes de publicar, o workflow roda lint, type-check, testes unitários e de interface.
-Endereço atual: `https://thiagotelho.github.io/anonymator/`. Depois do deploy, o job `verify` roda os testes de interface
-contra o site publicado (`E2E_BASE_URL=<url> pnpm test:e2e` faz o mesmo localmente). Mudanças de cada versão: [CHANGELOG.md](CHANGELOG.md).
-Roteiro para os testadores do beta: [docs/beta.md](docs/beta.md).
+Endereço: **https://anonimador.com.br** (o antigo `thiagotelho.github.io/anonymator/` redireciona para ele). Depois do
+deploy, o job `verify` roda os testes de interface contra o site publicado (`E2E_BASE_URL=<url> pnpm test:e2e` faz o mesmo
+localmente).
 
-Configuração única: repositório → Settings → Pages → Source: **GitHub Actions**.
-
-Domínio próprio (`anonimador.com.br`, para depois — nesta ordem):
-1. DNS do domínio: registros `A` do apex para `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-   (e `AAAA` `2606:50c0:8000::153` a `2606:50c0:8003::153`); `www` como `CNAME` para `thiagotelho.github.io`.
-2. Verificar o domínio na conta do GitHub (Settings → Pages → Add a verified domain).
-3. Só então criar `public/CNAME` com `anonimador.com.br` e publicar uma nova versão; depois do certificado, marcar
-   **Enforce HTTPS**. (Com o CNAME antes do DNS, o endereço do GitHub redirecionaria para um domínio que ainda não responde.)
+Configuração (já feita):
+- Repositório → Settings → Pages → Source: **GitHub Actions**; ambiente `github-pages` liberado para tags `v*`.
+- Domínio: DNS na GoDaddy com `A` do apex para `185.199.108.153` a `185.199.111.153`, `AAAA` para
+  `2606:50c0:8000::153` a `2606:50c0:8003::153` e `www` como `CNAME` para `thiagotelho.github.io`; domínio verificado na
+  conta do GitHub (TXT `_github-pages-challenge-ThiagoTelho`). Com publicação por Actions, o domínio fica nas
+  configurações do Pages (não há arquivo `CNAME`). HTTPS obrigatório.
 
 ## Licença
 

@@ -4,7 +4,7 @@ Texto para enviar aos advogados convidados.
 
 ---
 
-Olá! Obrigado por testar o **Anonimador** (https://thiagotelho.github.io/anonymator/).
+Olá! Obrigado por testar o **Anonimador** (https://anonimador.com.br).
 
 **O que é:** uma ferramenta gratuita que remove dados pessoais de PDFs de processos — no seu próprio navegador, sem enviar
 nada a nenhum servidor — para você poder usar o documento com ferramentas de IA. Depois, devolve os nomes reais à resposta
