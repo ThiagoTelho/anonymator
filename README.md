@@ -42,8 +42,11 @@ e não consegue enviar dados para nenhum outro endereço. Não há backend, anal
 | `src/core/anonymize.ts` | Motor de anonimização sobre o MuPDF: localização, remoção, marcadores e limpeza do arquivo |
 | `src/worker.ts` | Web Worker que executa o motor fora da thread da interface |
 | `src/App.tsx` | Interface (React + Tailwind) |
-| `scripts/make-fixture.mjs` | Gera um PDF fictício no estilo do PJe para testes, só com dados inventados |
-| `scripts/verify.ts` | Anonimiza o PDF fictício e confere, reabrindo o resultado, que nenhum dado original sobrou |
+| `src/core/leaks.ts` | Verificação independente: reabre o PDF gerado e procura os dados originais |
+| `tests/` | Testes automatizados (Vitest) do motor, dos detectores e das fixtures |
+| `fixtures/` | PDFs fictícios (só dados inventados), cada um com um `.json` dizendo o que deve sumir e o que deve ficar |
+| `scripts/make-fixture.mjs` | Gera o PDF fictício no estilo do PJe |
+| `scripts/verify.ts` | Anonimiza uma fixture e grava a saída em `out/` para inspeção manual |
 
 ## Desenvolvimento
 
@@ -58,18 +61,30 @@ pnpm dev
 ```
 
 ```bash
-pnpm verify
+pnpm test
 ```
 
 ```bash
 pnpm build
 ```
 
-`pnpm verify` grava em `out/` o PDF anonimizado, o texto e a tabela de correspondência, e termina com
-erro se algum dado original ainda puder ser extraído do PDF gerado.
+`pnpm build` faz o type-check, roda os testes e só então gera o build de produção.
+`pnpm verify [fixture.pdf]` grava em `out/` o PDF anonimizado, o texto e a tabela de correspondência,
+para inspeção visual.
 
-**Nunca use processos reais em testes ou fixtures do repositório.** Use `pnpm fixture` para gerar
-documentos fictícios.
+## Testes
+
+Todo avanço do projeto vem acompanhado de testes, no mesmo commit:
+
+- **Detectores** (`tests/detectors.test.ts`): validação de CPF/CNPJ, padrões, busca de nomes.
+- **Motor** (`tests/anonymize.test.ts`): gera PDFs fictícios em memória e confere remoção real,
+  preservação do texto ao redor, marcadores consistentes, opções e limpeza de metadados e anexos.
+- **Fixtures** (`tests/fixtures.test.ts`): roda o motor em cada PDF de `fixtures/` e confere, pelo `.json`
+  ao lado, o que precisa sumir (`mustRemove`) e o que precisa ficar (`mustKeep`). Para cobrir um novo
+  tipo de documento, basta adicionar o par `.pdf` + `.json`.
+- **Interface**: testes end-to-end (Playwright, contra o build com CSP) entram junto com a tela de revisão.
+
+**Nunca use processos reais em testes ou fixtures do repositório.** Só documentos fictícios, com dados inventados.
 
 ## Limitações conhecidas
 

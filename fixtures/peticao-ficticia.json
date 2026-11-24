@@ -1,0 +1,29 @@
+{
+  "description": "Petição inicial fictícia no estilo PJe (TJGO). Todos os dados são inventados.",
+  "people": [
+    { "variants": ["Maria Aparecida dos Santos Oliveira", "Sra. Oliveira"] },
+    { "variants": ["João Pedro Almeida", "Sr. Almeida"] },
+    { "variants": ["Carlos Eduardo Ferreira"] },
+    { "variants": ["Construtora Horizonte Ltda"] }
+  ],
+  "mustRemove": [
+    "Maria Aparecida dos Santos Oliveira",
+    "João Pedro Almeida",
+    "Carlos Eduardo Ferreira",
+    "Construtora Horizonte",
+    "529.982.247-25",
+    "111.444.777-35",
+    "11.222.333/0001-81",
+    "maria.oliveira@example.com",
+    "(62) 99876-5432",
+    "74230-010",
+    "OAB/GO 12.345",
+    "5001234-56.2025.8.09.0051"
+  ],
+  "mustKeep": [
+    "TRIBUNAL DE JUSTIÇA DO ESTADO DE GOIÁS",
+    "AÇÃO DE INDENIZAÇÃO POR DANOS MORAIS",
+    "10/03/2023",
+    "Goiânia"
+  ]
+}

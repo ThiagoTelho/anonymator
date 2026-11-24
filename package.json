@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vitest run && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "fixture": "node scripts/make-fixture.mjs",
-    "verify": "node scripts/verify.ts"
+    "verify": "node scripts/verify.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "mupdf": "^1.28.6",
@@ -25,7 +27,8 @@
     "oxlint": "^1.90.0",
     "tailwindcss": "^4.3.5",
     "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.1"
   },
   "license": "AGPL-3.0-or-later",
   "description": "Anonimiza dados pessoais de PDFs de processos judiciais inteiramente no navegador."

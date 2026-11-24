@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import type { Plugin } from "vite";
+import { defineConfig } from "vitest/config";
 
 // Política de segurança do conteúdo, aplicada só no build de produção (o servidor de
 // desenvolvimento precisa de WebSocket para recarregar). `connect-src 'self'` permite
@@ -32,4 +33,9 @@ export default defineConfig({
   worker: { format: "es" },
   optimizeDeps: { exclude: ["mupdf"] },
   build: { target: "esnext" },
+  test: {
+    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+    environment: "node",
+    testTimeout: 30_000,
+  },
 });

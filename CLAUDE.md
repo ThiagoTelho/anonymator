@@ -1,0 +1,46 @@
+# Anonymator — instruções para agentes
+
+Web app que anonimiza dados pessoais de PDFs de processos judiciais inteiramente no navegador.
+Visão geral e arquitetura: [README.md](README.md). Plano de implementação: `ROADMAP.md` (local, fora do git).
+
+## Regra principal: todo avanço vem com testes
+
+Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes que a cubram, no mesmo commit.
+
+- **Motor e detectores** (`src/core/`): testes em `tests/*.test.ts` (Vitest). Cubra o caso feliz, os casos de
+  borda e, principalmente, o que **não** deve ser removido (falsos positivos importam tanto quanto vazamentos).
+- **Correção de bug**: primeiro um teste que reproduz o bug e falha; depois a correção.
+- **Novo tipo de documento** (ex.: layout de outro tribunal ou órgão): adicione uma fixture fictícia
+  em `fixtures/` com o `.json` ao lado (veja o cabeçalho de `tests/fixtures.test.ts`).
+- **Interface**: quando a UI começar a crescer (tela de revisão, Fase 3), configure testes end-to-end com
+  Playwright contra o build de produção (com a CSP ativa) e teste os fluxos principais. Componentes com
+  lógica própria ganham testes com Testing Library.
+- Antes de commitar: `pnpm test`, `pnpm lint` e `pnpm build` (o build também roda os testes).
+- Ao mudar algo que um teste cobre, atualize o teste junto. Nunca apague ou enfraqueça um teste para fazê-lo passar
+  sem explicar o motivo no commit.
+
+## Privacidade (inegociável)
+
+- **Nunca** coloque PDFs reais, nem trechos deles, em fixtures, testes, commits, issues ou conversas.
+  Use só documentos fictícios com dados inventados (CPFs e CNPJs válidos podem ser gerados).
+- Nada pode sair do navegador: sem backend, analytics, fontes ou scripts de terceiros. A CSP em
+  `vite.config.ts` (`connect-src 'self'`) precisa continuar valendo; não a afrouxe.
+
+## Convenções
+
+- Código e comentários em português; nomes de identificadores em inglês.
+- `ROADMAP.md` está no `.gitignore`: atualize-o ao concluir etapas, mas nunca o commite.
+- MuPDF é AGPL; o projeto inteiro é AGPL-3.0-or-later.
+- O GitHub Pages só será publicado quando o projeto estiver mais avançado; não configure deploy sem pedido.
+
+## Comandos
+
+| Comando | O que faz |
+|---|---|
+| `pnpm dev` | Servidor de desenvolvimento (sem CSP) |
+| `pnpm test` | Testes (Vitest) |
+| `pnpm test:watch` | Testes em modo observação |
+| `pnpm lint` | Oxlint |
+| `pnpm build` | Type-check + testes + build de produção (com CSP) |
+| `pnpm fixture` | Regera `fixtures/peticao-ficticia.pdf` |
+| `pnpm verify [pdf]` | Anonimiza um PDF fictício e grava a saída em `out/` para inspeção |
