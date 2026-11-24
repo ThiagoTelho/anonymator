@@ -16,9 +16,9 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
   `.gitignore` e nunca deve ir para o remoto, nem valores copiados dele para testes commitados): `node scripts/eval-dataset.ts <pasta> --misses`
   mostra a remoção por categoria e cada vazamento com contexto; `tests/dataset.test.ts` exige 100% e zero
   apagamento em excesso. Novos conjuntos de outros órgãos devem seguir o mesmo caminho.
-- **Interface**: quando a UI começar a crescer (tela de revisão, Fase 3), configure testes end-to-end com
-  Playwright contra o build de produção (com a CSP ativa) e teste os fluxos principais. Componentes com
-  lógica própria ganham testes com Testing Library.
+- **Interface**: testes end-to-end com Playwright contra o build de produção (com a CSP ativa) são requisito
+  da primeira versão de teste (ver `ROADMAP.md`, Sprint 2): fluxos principais e "nenhuma requisição fora da
+  origem". Componentes com lógica própria ganham testes com Testing Library.
 - Antes de commitar: `pnpm test`, `pnpm lint` e `pnpm build` (o build também roda os testes).
 - Ao mudar algo que um teste cobre, atualize o teste junto. Nunca apague ou enfraqueça um teste para fazê-lo passar
   sem explicar o motivo no commit.
@@ -35,7 +35,8 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 - Código e comentários em português; nomes de identificadores em inglês.
 - `ROADMAP.md` está no `.gitignore`: atualize-o ao concluir etapas, mas nunca o commite.
 - MuPDF é AGPL; o projeto inteiro é AGPL-3.0-or-later.
-- O GitHub Pages só será publicado quando o projeto estiver mais avançado; não configure deploy sem pedido.
+- O GitHub Pages só será publicado quando o projeto estiver mais avançado (beta fechado, Sprint 3 do
+  `ROADMAP.md`); não configure deploy sem pedido.
 
 ## Comandos
 
@@ -46,5 +47,8 @@ Nenhuma funcionalidade, correção ou mudança de comportamento entra sem testes
 | `pnpm test:watch` | Testes em modo observação |
 | `pnpm lint` | Oxlint |
 | `pnpm build` | Type-check + testes + build de produção (com CSP) |
-| `pnpm fixture` | Regera `fixtures/peticao-ficticia.pdf` |
+| `pnpm fixture` | Regera os PDFs de `fixtures/` a partir de `fixtures/src/*.html` |
+| `pnpm preview` | Serve o build de produção (para testar com a CSP) |
+| `pnpm preview:fixture <nome> <página>` | Anonimiza uma fixture como o usuário faria e grava em `out/` |
+| `node scripts/eval-dataset.ts <pasta> --misses` | Avalia um conjunto com gabarito estruturado |
 | `pnpm verify [pdf]` | Anonimiza um PDF fictício e grava a saída em `out/` para inspeção |
